@@ -213,11 +213,11 @@ class TTSTextOptimizer:
     def _calculate_pause(self, chunk: str) -> int:
         """计算停顿时长（毫秒）"""
         if chunk.endswith(('。', '.', '！', '!', '？', '?')):
-            return 800  # 长停顿
+            return 30  # 长停顿
         elif chunk.endswith(('，', ',', '；', ';')):
-            return 400  # 中停顿
+            return 20  # 中停顿
         else:
-            return 200  # 短停顿
+            return 10  # 短停顿
 
 
 # ============================================================

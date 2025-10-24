@@ -1,6 +1,7 @@
 """
 TTS 范型接口模块
 支持多种 TTS 服务的统一接口，方便切换
+后续添加多语种tts范型，现在只支持中文。由agent自己识别语言
 """
 from abc import ABC, abstractmethod
 from typing import Optional, List
@@ -48,7 +49,7 @@ class EdgeTTS(BaseTTS):
     def __init__(
         self,
         voice: str = "zh-CN-XiaoxiaoNeural",  # 晓晓（温柔女声）
-        rate: str = "+0%",      # 语速：-50% 到 +50%
+        rate: str = "+10%",      # 语速：-50% 到 +50%
         volume: str = "+0%",    # 音量：-50% 到 +50%
         pitch: str = "+0Hz"     # 音调：-50Hz 到 +50Hz
     ):

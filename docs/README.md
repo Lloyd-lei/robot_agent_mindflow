@@ -1,6 +1,6 @@
-# AI Agent + TTS 语音助手
+# 🤖 AI Agent + TTS 语音助手
 
-**- OpenAI / Ollama + LangChain + Edge TTS**
+**生产级 AI 语音交互系统 - OpenAI / Ollama + LangChain + Edge TTS**
 
 <p align="center">
   <img src="https://img.shields.io/badge/Ollama-Qwen2.5-red?style=for-the-badge&logo=ollama" />
@@ -14,7 +14,7 @@
 
 ## 🎯 项目概述
 
-这是一个**AI 语音交互系统**，结合了：
+这是一个**生产级 AI 语音交互系统**，结合了：
 
 - 🦙 **Ollama + Qwen2.5** - 本地运行，完全免费，隐私保护（**推荐**）
 - ☁️ **OpenAI GPT-4** - 云端 API，强大的推理能力（可选）
@@ -23,8 +23,6 @@
 - ⚡ **KV Cache 优化** - 多轮对话加速 3-5 倍
 
 > 💡 **新功能：** 现在支持 Ollama 本地模型！一行配置即可切换 OpenAI 和 Ollama。
-
-**由于ASR推理成本过高，以及整个ASR + VAD + 打断过于负责，因此与llm + tts解藕**
 
 ### ✨ 核心特性
 
@@ -51,7 +49,7 @@ robot_agent_mindflow/
 │   └── config.py                # 配置管理
 │
 ├── 🎬 演示程序
-│   ├── main.py           # 主交互演示（推荐）✨
+│   ├── demo_hybrid.py           # 主交互演示（推荐）✨
 │   └── test_tts_integration.py  # TTS 功能测试
 │
 ├── 📚 文档

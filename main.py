@@ -18,21 +18,31 @@ except ImportError:
         BRIGHT = RESET_ALL = ""
 
 
-def print_header():
+def print_header(streaming_mode=False):
     """打印欢迎界面"""
     print("\n" + "=" * 80)
-    print(Fore.CYAN + Style.BRIGHT + "🚀 混合架构AI Agent - 语音交互版")
+    mode_text = "流式语音版 ⚡" if streaming_mode else "语音交互版"
+    print(Fore.CYAN + Style.BRIGHT + f"🚀 混合架构AI Agent - {mode_text}")
     print("=" * 80)
     print("\n" + Fore.GREEN + "✨ 核心优势：")
     print("  📊 OpenAI原生API - 100%可靠的工具调用")
     print("  🛠️  LangChain工具池 - 17个强大工具")
     print("  ⚡ KV Cache优化 - 多轮对话速度提升3-5倍")
     print("  🗣️  Edge TTS - 真实语音播放（晓晓语音）")
-    print("\n" + Fore.YELLOW + "🎯 语音功能：")
-    print("  • 🔊 真实语音播放 - Edge TTS 免费高质量")
-    print("  • 🎵 智能分句 - 自然流畅的语音节奏")
-    print("  • 🛡️  防重叠播放 - 稳定可靠的音频管理")
-    print("  • 💡 推理可视化 - 完整展示思考过程")
+    
+    if streaming_mode:
+        print("\n" + Fore.YELLOW + "🚀 流式TTS功能（推荐）：")
+        print("  • ⚡ 超低延迟 - LLM生成的同时TTS播放")
+        print("  • 🎯 智能分句 - 自动识别句子边界")
+        print("  • 🛡️  背压控制 - 自动防止资源爆炸")
+        print("  • 💡 推理可视化 - 实时展示思考过程")
+    else:
+        print("\n" + Fore.YELLOW + "🎯 语音功能：")
+        print("  • 🔊 真实语音播放 - Edge TTS 免费高质量")
+        print("  • 🎵 智能分句 - 自然流畅的语音节奏")
+        print("  • 🛡️  防重叠播放 - 稳定可靠的音频管理")
+        print("  • 💡 推理可视化 - 完整展示思考过程")
+    
     print("\n" + Fore.RED + "🔊 请确保扬声器已开启，音量适中！")
     print("-" * 80)
 
@@ -79,14 +89,35 @@ def display_cache_stats(agent):
     print(f"{Fore.CYAN}{'='*70}\n")
 
 
-def main():
-    """主函数"""
-    print_header()
+def main(streaming=False):
+    """
+    主函数
+    
+    Args:
+        streaming: 是否使用流式TTS模式（推荐）
+    """
+    print_header(streaming_mode=streaming)
     
     # 初始化Agent
-    print(f"\n{Fore.CYAN}⏳ 正在初始化混合架构Agent...")
+    mode_text = "流式TTS模式 ⚡" if streaming else "批量TTS模式"
+    print(f"\n{Fore.CYAN}⏳ 正在初始化混合架构Agent（{mode_text}）...")
     start_time = time.time()
-    agent = HybridReasoningAgent(enable_cache=True, enable_tts=True, voice_mode=True)
+    
+    if streaming:
+        # 流式TTS模式（推荐）
+        agent = HybridReasoningAgent(
+            enable_cache=True,
+            enable_streaming_tts=True,
+            voice_mode=True
+        )
+    else:
+        # 传统批量TTS模式
+        agent = HybridReasoningAgent(
+            enable_cache=True,
+            enable_tts=True,
+            voice_mode=True
+        )
+    
     init_time = time.time() - start_time
     print(f"{Fore.GREEN}✅ 初始化完成！耗时: {init_time:.2f}秒\n")
     
@@ -132,18 +163,40 @@ def main():
             print(f"{Fore.MAGENTA}{'='*70}")
             
             start_time = time.time()
-            # 使用真实 TTS 播放（simulate_mode=False 启用真实语音）
-            result = agent.run_with_tts(user_input, show_reasoning=True, simulate_mode=False)
+            
+            # 根据模式选择不同的方法
+            if streaming:
+                # 流式TTS模式
+                result = agent.run_with_streaming_tts(user_input, show_reasoning=True)
+            else:
+                # 传统批量TTS模式
+                result = agent.run_with_tts(user_input, show_reasoning=True, simulate_mode=False)
+            
             response_time = time.time() - start_time
             
             if result['success']:
                 # 显示性能统计
                 print(f"\n{Fore.GREEN}⚡ 响应耗时: {Fore.WHITE}{response_time:.2f}秒")
                 print(f"{Fore.GREEN}📞 工具调用: {Fore.WHITE}{result['tool_calls']}次")
-                if result.get('total_tts_chunks', 0) > 0:
+                
+                # 流式TTS统计
+                if result.get('streaming_stats'):
+                    stats = result['streaming_stats']
+                    print(f"{Fore.GREEN}🗣️  TTS统计:")
+                    print(f"   - 接收文本: {stats['text_received']}段")
+                    print(f"   - 生成音频: {stats['audio_generated']}段")
+                    print(f"   - 播放完成: {stats['audio_played']}段")
+                    if stats.get('audio_failed', 0) > 0:
+                        print(f"   - 生成失败: {stats['audio_failed']}段")
+                    if stats.get('text_dropped', 0) > 0:
+                        print(f"   - 丢弃文本: {stats['text_dropped']}段（背压）")
+                
+                # 传统TTS统计
+                elif result.get('total_tts_chunks', 0) > 0:
                     print(f"{Fore.GREEN}🗣️  TTS分段: {Fore.WHITE}{result['total_tts_chunks']}个")
                     if result.get('tts_success'):
                         print(f"{Fore.GREEN}🔊 语音播放: {Fore.WHITE}✅ 完成")
+                
                 if turn > 1:
                     print(f"{Fore.GREEN}🚀 KV Cache: {Fore.WHITE}已优化（第{turn}轮）")
                 
@@ -153,7 +206,7 @@ def main():
                     print(f"{Fore.YELLOW}👋 感谢使用！再见！\n")
                     break
             else:
-                print(f"\n{Fore.RED}❌ 出错了: {result['output']}\n")
+                print(f"\n{Fore.RED}❌ 出错了: {result.get('error', result.get('output', 'Unknown error'))}\n")
                 
         except KeyboardInterrupt:
             print(f"\n\n{Fore.YELLOW}👋 程序被中断，再见！\n")
@@ -218,8 +271,18 @@ if __name__ == "__main__":
     import sys
     
     # 检查命令行参数
-    if len(sys.argv) > 1 and sys.argv[1] == 'test':
-        test_mode()
+    if len(sys.argv) > 1:
+        if sys.argv[1] == 'test':
+            test_mode()
+        elif sys.argv[1] == 'streaming' or sys.argv[1] == 'stream':
+            # 流式TTS模式（推荐）
+            main(streaming=True)
+        else:
+            print("用法:")
+            print("  python demo_hybrid.py           # 批量TTS模式")
+            print("  python demo_hybrid.py streaming # 流式TTS模式（推荐）⚡")
+            print("  python demo_hybrid.py test      # 测试模式")
     else:
-        main()
+        # 默认使用流式TTS模式（推荐）
+        main(streaming=True)
 

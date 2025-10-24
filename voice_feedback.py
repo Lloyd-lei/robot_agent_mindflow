@@ -1,6 +1,7 @@
 """
 语音等待反馈模块
 用于语音交互Agent的等待提示
+还需要找到一个合适的音效文件，作为等待提示
 """
 import threading
 import time

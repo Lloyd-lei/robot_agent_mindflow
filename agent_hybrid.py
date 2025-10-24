@@ -1,5 +1,7 @@
 """
-混合架构 Agent - OpenAI原生Function Calling + LangChain工具池 + KV Cache优化
+Agent - OpenAI原生Function Calling + LangChain工具池 + KV Cache优化
+
+没用openai的时候，可以切换到ollama，ollama没有tool_choice，但能用longchain
 
 核心特性：
 1. 使用OpenAI原生API获得完全控制权（tool_choice控制）
@@ -34,13 +36,14 @@ from tools import (
     DirectionGuideTool,
     PackageManagementTool,
     FAQTool
-)
+) #真他妈长
 import config
 
 # 导入TTS优化和语音反馈
-from tts_optimizer import TTSOptimizer
-from voice_feedback import VoiceWaitingFeedback
-from tts_interface import TTSFactory, TTSProvider
+from tts_optimizer import TTSOptimizer # ttsoptimizer没有实现streaming pipline，所以好像没用上
+from voice_feedback import VoiceWaitingFeedback # response空窗期播放声音，防止用户等待焦虑，但还没找到合适的音效
+from tts_interface import TTSFactory, TTSProvider # ttsinterface是tts的范型接口，可以轻松切换tts服务，现在是edge tts，可以换openai或者自己的tts
+from streaming_tts_pipeline import StreamingTTSPipeline, create_streaming_pipeline # streaming_tts_pipeline是流式tts的实现
 
 
 class HybridReasoningAgent:
@@ -61,7 +64,8 @@ class HybridReasoningAgent:
         enable_cache: bool = True,
         enable_tts: bool = False,
         voice_mode: bool = False,
-        tts_engine: Optional[callable] = None
+        tts_engine: Optional[callable] = None,
+        enable_streaming_tts: bool = False
     ):
         """
         初始化混合架构Agent
@@ -71,19 +75,26 @@ class HybridReasoningAgent:
             model: 模型名称
             temperature: 温度参数
             enable_cache: 是否启用对话历史缓存（KV Cache优化）
-            enable_tts: 是否启用TTS优化
+            enable_tts: 是否启用TTS优化（传统批量模式）
             voice_mode: 是否启用语音等待反馈
             tts_engine: TTS引擎函数（可选）
+            enable_streaming_tts: 是否启用流式TTS（推荐，更低延迟）
         """
-        self.api_key = api_key or config.OPENAI_API_KEY
+        self.api_key = api_key or config.LLM_API_KEY
         self.model = model or config.LLM_MODEL
         self.temperature = temperature if temperature is not None else config.TEMPERATURE
         self.enable_cache = enable_cache
         self.enable_tts = enable_tts
         self.voice_mode = voice_mode
+        self.enable_streaming_tts = enable_streaming_tts
         
-        # OpenAI客户端
-        self.client = OpenAI(api_key=self.api_key)
+        # OpenAI客户端（兼容Ollama）
+        if config.LLM_BASE_URL:
+            # 使用自定义base_url（Ollama或其他兼容服务）
+            self.client = OpenAI(api_key=self.api_key, base_url=config.LLM_BASE_URL)
+        else:
+            # 使用OpenAI官方服务
+            self.client = OpenAI(api_key=self.api_key)
         
         # LangChain工具池
         self.langchain_tools = self._init_langchain_tools()
@@ -100,35 +111,67 @@ class HybridReasoningAgent:
         # 系统提示词（会被KV Cache缓存，节省成本）
         self.system_prompt = self._create_system_prompt()
         
-        # TTS优化器
+        # TTS引擎（共享）
+        self.tts_engine = tts_engine
+        if (self.enable_tts or self.enable_streaming_tts) and tts_engine is None:
+            print(f"🎵 使用 Edge TTS（晓晓语音，语速 +15%）...")
+            self.tts_engine = TTSFactory.create_tts(
+                provider=TTSProvider.EDGE,
+                voice="zh-CN-XiaoxiaoNeural",  # 晓晓 - 温柔女声 # 还有别的声音，可以换
+                rate="+15%",    # 🔧 语速加快 15%（更自然）
+                volume="+10%"   # 🔧 音量稍大
+            )
+        
+        # TTS优化器（传统批量模式）
         if self.enable_tts:
-            # 如果没有提供 tts_engine，默认使用 Edge TTS
-            if tts_engine is None:
-                print(f"🎵 使用 Edge TTS（晓晓语音）...")
-                tts_engine = TTSFactory.create_tts(
-                    provider=TTSProvider.EDGE,
-                    voice="zh-CN-XiaoxiaoNeural",  # 晓晓 - 温柔女声
-                    rate="+0%",
-                    volume="+0%"
-                )
-            
             self.tts_optimizer = TTSOptimizer(
-                tts_engine=tts_engine,
+                tts_engine=self.tts_engine,
                 max_chunk_length=100,
                 max_retries=3,
                 timeout_per_chunk=10,
                 buffer_size=3
             )
         
+        # 流式TTS管道（推荐模式）
+        """
+        最大程度保证没有背压
+        
+        根据内存和安全性大小，可以重新配置
+
+        参数说明：
+        - text_queue_size: 文本队列大小
+        - audio_queue_size: 音频队列大小
+        - max_tasks: 最大任务数
+        - generation_timeout: 生成超时时间
+        - playback_timeout: 播放超时时间
+        - min_chunk_length: 最小句子长度
+        - max_chunk_length: 最大句子长度
+        """
+        self.streaming_pipeline = None
+        if self.enable_streaming_tts:
+            self.streaming_pipeline = create_streaming_pipeline(
+                tts_engine=self.tts_engine,
+                text_queue_size=15,
+                audio_queue_size=10,
+                max_tasks=50,
+                generation_timeout=15.0,
+                playback_timeout=30.0,
+                min_chunk_length=3, # 最小句子长度
+                max_chunk_length=150, # 最大句子长度
+                verbose=True
+            )
+            print(f"流式TTS管道已创建")
+        
         # 语音反馈
         if self.voice_mode:
             self.voice_feedback = VoiceWaitingFeedback(mode='text')
         
-        print(f"✅ 混合架构Agent初始化成功")
+        print(f"   混合架构Agent初始化成功")
         print(f"   引擎: OpenAI原生API ({self.model})")
         print(f"   工具: LangChain工具池 ({len(self.langchain_tools)}个)")
         print(f"   KV Cache: {'启用' if self.enable_cache else '禁用'}")
         print(f"   TTS优化: {'启用' if self.enable_tts else '禁用'}")
+        print(f"   流式TTS: {'启用 ⚡' if self.enable_streaming_tts else '禁用'}")
         print(f"   语音模式: {'启用' if self.voice_mode else '禁用'}")
         print(f"   温度: {self.temperature}")
         print()
@@ -162,15 +205,15 @@ class HybridReasoningAgent:
         创建系统提示词
         注意：这个提示词会被OpenAI自动缓存（Prompt Caching），节省50%成本
         """
-        return """你是一个具有强大推理能力的AI助手。
+        return """你是一个具有强大推理能力的AI语音助手。你叫茶茶。你的回答必须为tts优化，不能出现表情包和特殊符号。
 
-🎯 核心能力：
+核心能力：
 1. 深度分析和理解用户问题
 2. 必须使用工具解决问题（展示推理能力）
 3. 自主决定工具参数（展示决策能力）
 4. 基于结果进行综合推理
 
-🛠️ 可用工具：
+可用工具：
 - calculator: 数学计算（sqrt、三角函数、复杂运算）
 - time_tool: 时间查询（当前时间、日期、星期）
 - text_analyzer: 文本分析（字数统计、句子分析）
@@ -206,7 +249,7 @@ class HybridReasoningAgent:
 → 回答：基于结果回答用户
 
 用户："再见"
-→ 分析：包含结束关键词
+→ 分析：包含结束关键词或者相关结束词
 → 决策：必须调用end_conversation_detector
 → 参数：user_message="再见"
 → 执行：检测结果
@@ -292,13 +335,13 @@ class HybridReasoningAgent:
         """
         if show_reasoning:
             print("\n" + "="*70)
-            print("🧠 混合架构推理过程（OpenAI原生 + LangChain工具）")
+            print("混合架构推理过程（OpenAI原生 + LangChain工具）")
             print("="*70)
         
         # 检测结束关键词
         contains_end_keyword = self._check_end_keywords(user_input)
         if contains_end_keyword and show_reasoning:
-            print(f"\n🔍 预处理：检测到结束关键词，将强制要求调用end_conversation_detector")
+            print(f"\n预处理：检测到结束关键词，将强制要求调用end_conversation_detector")
         
         # 构建消息（利用KV Cache）
         messages = self._build_messages(user_input, contains_end_keyword)
@@ -311,7 +354,7 @@ class HybridReasoningAgent:
             # 第一次调用：模型决策
             if show_reasoning:
                 print(f"\n{'─'*70}")
-                print("📡 调用OpenAI API进行推理...")
+                print("调用OpenAI API进行推理...")
                 print(f"{'─'*70}")
             
             response = self.client.chat.completions.create(
@@ -636,6 +679,266 @@ class HybridReasoningAgent:
         result['total_tts_chunks'] = len(tts_chunks)
         
         return result
+    
+    def run_with_streaming_tts(self,
+                                user_input: str,
+                                show_reasoning: bool = True) -> Dict[str, Any]:
+        """
+        流式TTS模式：LLM流式输出 → 实时TTS播放
+        
+        架构：
+            LLM Streaming → Smart Splitter → TTS Generator → Audio Player
+                              ↓ 背压           ↓ 背压          ↓
+                           文本队列          音频队列        播放队列
+        
+        特点：
+        1. 更低延迟 - 边生成边播放
+        2. 资源可控 - 有界队列防止爆炸
+        3. 自动背压 - 保护系统稳定
+        
+        Args:
+            user_input: 用户输入
+            show_reasoning: 是否显示推理过程
+            
+        Returns:
+            完整结果字典
+        """
+        if not self.enable_streaming_tts:
+            print("⚠️  流式TTS未启用，使用普通模式")
+            return self.run(user_input, show_reasoning=show_reasoning)
+        
+        print(f"\n{'='*70}")
+        print("⚡ 流式TTS模式")
+        print(f"{'='*70}\n")
+        
+        # 启动流式管道
+        self.streaming_pipeline.start()
+        
+        # 语音反馈
+        if self.voice_mode:
+            self.voice_feedback.start('thinking')
+        
+        try:
+            # === 阶段1：LLM推理（使用OpenAI Stream API）===
+            print(f"🧠 LLM推理中...\n")
+            
+            # 构建消息
+            messages = [
+                {"role": "system", "content": self.system_prompt},
+                *self.conversation_history,
+                {"role": "user", "content": user_input}
+            ]
+            
+            # 调用OpenAI流式API
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                tools=self.openai_tools,
+                tool_choice="auto",
+                temperature=self.temperature,
+                stream=True  # 启用流式输出
+            )
+            
+            # 累积变量
+            full_response = ""
+            tool_calls_buffer = []
+            current_tool_call = None
+            
+            # === 阶段2：流式处理LLM输出 ===
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                
+                # 处理文本内容
+                if delta.content:
+                    content_piece = delta.content
+                    full_response += content_piece
+                    
+                    # 实时送入TTS管道（智能分句会自动处理）
+                    self.streaming_pipeline.add_text_from_llm(content_piece)
+                    
+                    if show_reasoning:
+                        print(content_piece, end='', flush=True)
+                
+                # 处理工具调用
+                if delta.tool_calls:
+                    for tool_call_delta in delta.tool_calls:
+                        if tool_call_delta.index is not None:
+                            # 新的工具调用
+                            if current_tool_call is None or \
+                               tool_call_delta.index != current_tool_call.get('index'):
+                                if current_tool_call:
+                                    tool_calls_buffer.append(current_tool_call)
+                                current_tool_call = {
+                                    'index': tool_call_delta.index,
+                                    'id': tool_call_delta.id or '',
+                                    'type': 'function',
+                                    'function': {
+                                        'name': tool_call_delta.function.name or '',
+                                        'arguments': tool_call_delta.function.arguments or ''
+                                    }
+                                }
+                            else:
+                                # 累积工具调用参数
+                                if tool_call_delta.function.arguments:
+                                    current_tool_call['function']['arguments'] += \
+                                        tool_call_delta.function.arguments
+            
+            # 添加最后一个工具调用
+            if current_tool_call:
+                tool_calls_buffer.append(current_tool_call)
+            
+            # 停止语音反馈
+            if self.voice_mode:
+                self.voice_feedback.stop()
+            
+            print(f"\n")
+            
+            # === 阶段3：处理工具调用 ===
+            should_end = False  # 检测对话结束
+            
+            if tool_calls_buffer:
+                if show_reasoning:
+                    print(f"\n{'='*70}")
+                    print("🛠️  工具调用")
+                    print(f"{'='*70}\n")
+                
+                tool_messages = []
+                for tool_call in tool_calls_buffer:
+                    tool_name = tool_call['function']['name']
+                    tool_args_str = tool_call['function']['arguments']
+                    
+                    # 解析参数（修复bug：必须转为字典）
+                    try:
+                        tool_args = json.loads(tool_args_str)
+                    except json.JSONDecodeError as e:
+                        tool_args = {}
+                        print(f"⚠️  工具参数解析失败: {e}")
+                    
+                    if show_reasoning:
+                        print(f"📌 调用工具: {tool_name}")
+                        print(f"   参数: {tool_args_str}\n")
+                    
+                    # 执行工具（传字典，不是字符串！）
+                    tool_result = self._execute_tool(tool_name, tool_args)
+                    
+                    # 检测对话结束
+                    if tool_name == 'end_conversation_detector' and 'END_CONVERSATION' in tool_result:
+                        should_end = True
+                    
+                    if show_reasoning:
+                        print(f"   结果: {tool_result}\n")
+                    
+                    # 构建工具消息
+                    tool_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call['id'],
+                        "content": str(tool_result)
+                    })
+                
+                # === 阶段4：获取最终回复（带工具结果）===
+                print(f"{'='*70}")
+                print("💬 最终回复")
+                print(f"{'='*70}\n")
+                
+                # 构建包含工具结果的消息
+                messages_with_tools = messages + [
+                    {
+                        "role": "assistant",
+                        "content": full_response or None,
+                        "tool_calls": [
+                            {
+                                "id": tc['id'],
+                                "type": "function",
+                                "function": {
+                                    "name": tc['function']['name'],
+                                    "arguments": tc['function']['arguments']
+                                }
+                            } for tc in tool_calls_buffer
+                        ]
+                    }
+                ] + tool_messages
+                
+                # 再次调用（流式）
+                final_stream = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages_with_tools,
+                    temperature=self.temperature,
+                    stream=True
+                )
+                
+                final_response = ""
+                for chunk in final_stream:
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        content_piece = delta.content
+                        final_response += content_piece
+                        
+                        # 实时送入TTS管道
+                        self.streaming_pipeline.add_text_from_llm(content_piece)
+                        
+                        if show_reasoning:
+                            print(content_piece, end='', flush=True)
+                
+                print(f"\n")
+                full_response = final_response
+            
+            # === 阶段5：刷新TTS管道，处理剩余文本 ===
+            self.streaming_pipeline.flush_remaining_text()
+            
+            # === 阶段6：等待所有音频播放完成 ===
+            print(f"\n{'='*70}")
+            print("🎵 等待音频播放完成...")
+            print(f"{'='*70}\n")
+            
+            import time
+            while True:
+                stats = self.streaming_pipeline.get_stats()
+                
+                # 检查所有条件（关键：包括 is_playing）
+                all_done = (
+                    stats.text_queue_size == 0 and 
+                    stats.audio_queue_size == 0 and 
+                    stats.active_tasks == 0 and
+                    not stats.is_playing  # 关键：确保没有音频正在播放！
+                )
+                
+                if all_done:
+                    break
+                
+                time.sleep(0.5)
+            
+            # 停止管道
+            self.streaming_pipeline.stop(wait=True, timeout=5.0)
+            
+            # === 阶段7：更新对话历史 ===
+            if self.enable_cache:
+                self.conversation_history.append({"role": "user", "content": user_input})
+                self.conversation_history.append({"role": "assistant", "content": full_response})
+            
+            # 返回结果
+            return {
+                'success': True,
+                'input': user_input,
+                'output': full_response,
+                'tool_calls': len(tool_calls_buffer) if tool_calls_buffer else 0,
+                'streaming_stats': self.streaming_pipeline.get_stats().to_dict(),
+                'should_end': should_end  # 添加对话结束标志
+            }
+            
+        except Exception as e:
+            print(f"\n❌ 错误: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # 确保管道停止
+            if self.streaming_pipeline:
+                self.streaming_pipeline.stop(wait=False)
+            
+            return {
+                'success': False,
+                'error': str(e),
+                'input': user_input
+            }
     
     def clear_cache(self):
         """清除对话历史缓存"""
