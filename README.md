@@ -144,7 +144,7 @@ brew install ollama          # macOS
 ollama serve                 # 启动服务（保持运行）
 
 # 4. 下载模型（另开一个终端）
-ollama pull qwen2.5:7b       # 下载 Qwen2.5 7B 模型（4.7GB）
+ollama pull qwen2.5:3b       # 下载 Qwen2.5 3B 模型（2GB，推荐）
 
 # 5. 测试 Ollama 配置
 python test_ollama.py        # 验证配置是否正确

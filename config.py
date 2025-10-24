@@ -11,7 +11,7 @@ load_dotenv()
 USE_OLLAMA = os.getenv("USE_OLLAMA", "true").lower() == "true"
 
 # ============== Ollama 配置（本地模型）==============
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 
 # ============== OpenAI 配置（云端API）==============
