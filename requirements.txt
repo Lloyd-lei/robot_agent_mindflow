@@ -1,0 +1,17 @@
+# LLM Framework - 用于构建Agent和Function Calling
+langchain==0.1.0
+langchain-openai==0.0.5
+langchain-community==0.0.10
+
+# OpenAI SDK (更新版本以兼容langchain-openai)
+openai>=1.10.0
+
+# 环境变量管理
+python-dotenv==1.0.0
+
+# 基础工具
+pydantic==2.5.0
+
+# 彩色终端输出
+colorama==0.4.6
+
