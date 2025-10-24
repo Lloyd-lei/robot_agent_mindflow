@@ -40,6 +40,7 @@ import config
 # 导入TTS优化和语音反馈
 from tts_optimizer import TTSOptimizer
 from voice_feedback import VoiceWaitingFeedback
+from tts_interface import TTSFactory, TTSProvider
 
 
 class HybridReasoningAgent:
@@ -101,6 +102,16 @@ class HybridReasoningAgent:
         
         # TTS优化器
         if self.enable_tts:
+            # 如果没有提供 tts_engine，默认使用 Edge TTS
+            if tts_engine is None:
+                print(f"🎵 使用 Edge TTS（晓晓语音）...")
+                tts_engine = TTSFactory.create_tts(
+                    provider=TTSProvider.EDGE,
+                    voice="zh-CN-XiaoxiaoNeural",  # 晓晓 - 温柔女声
+                    rate="+0%",
+                    volume="+0%"
+                )
+            
             self.tts_optimizer = TTSOptimizer(
                 tts_engine=tts_engine,
                 max_chunk_length=100,

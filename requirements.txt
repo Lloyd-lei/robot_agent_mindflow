@@ -15,3 +15,9 @@ pydantic==2.5.0
 # 彩色终端输出
 colorama==0.4.6
 
+# TTS 语音合成
+edge-tts>=7.0.0
+
+# 音频播放
+pygame==2.5.2
+

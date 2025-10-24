@@ -10,6 +10,8 @@ import re
 import time
 import threading
 import queue
+import io
+import asyncio
 from typing import List, Dict, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -454,20 +456,41 @@ class TTSAudioManager:
     
     def _blocking_play(self, audio_data: bytes):
         """
-        阻塞式音频播放
-        
-        实际使用时需要接入真实音频库：
-        - pygame: channel.get_busy() 循环等待
-        - sounddevice: sd.wait() 阻塞等待
-        - pydub: play(audio) 阻塞播放
+        阻塞式音频播放 - 使用 pygame 实现真实播放
         """
-        # TODO: 接入真实TTS引擎后实现
-        # import sounddevice as sd
-        # import soundfile as sf
-        # data, samplerate = sf.read(io.BytesIO(audio_data))
-        # sd.play(data, samplerate)
-        # sd.wait()
-        pass
+        try:
+            import pygame
+            
+            # 初始化 pygame mixer（如果尚未初始化）
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            
+            # 从字节数据加载音频
+            audio_io = io.BytesIO(audio_data)
+            pygame.mixer.music.load(audio_io)
+            
+            # 播放音频
+            pygame.mixer.music.play()
+            
+            # 阻塞等待播放完成
+            while pygame.mixer.music.get_busy():
+                if self.stop_requested:
+                    pygame.mixer.music.stop()
+                    break
+                time.sleep(0.01)
+            
+        except ImportError:
+            print("⚠️  pygame 未安装，使用文本模拟模式")
+            print(f"   提示：运行 pip install pygame 来启用音频播放")
+            # 降级：模拟播放时间
+            estimated_duration = len(audio_data) / 16000  # 粗略估算
+            self._precise_pause(int(estimated_duration * 1000))
+            
+        except Exception as e:
+            print(f"⚠️  音频播放出错: {e}")
+            # 降级：模拟播放时间
+            estimated_duration = len(audio_data) / 16000
+            self._precise_pause(int(estimated_duration * 1000))
     
     def _simulate_play(self, chunk: AudioChunk):
         """模拟播放（用于测试）"""
@@ -490,10 +513,37 @@ class TTSAudioManager:
                 time.sleep(sleep_time)
     
     def _call_tts_with_timeout(self, text: str) -> bytes:
-        """调用TTS引擎（带超时控制）"""
+        """调用TTS引擎（带超时控制，支持异步TTS）"""
         if not self.tts_engine:
             raise Exception("TTS引擎未配置")
         
+        # 检查 TTS 引擎是否是 BaseTTS 实例（异步）
+        try:
+            from tts_interface import BaseTTS
+            if isinstance(self.tts_engine, BaseTTS):
+                # 异步 TTS 调用
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    # 如果没有运行中的事件循环，创建新的
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                # 使用 asyncio.wait_for 实现超时
+                try:
+                    audio_data = loop.run_until_complete(
+                        asyncio.wait_for(
+                            self.tts_engine.synthesize(text),
+                            timeout=self.timeout_per_chunk
+                        )
+                    )
+                    return audio_data
+                except asyncio.TimeoutError:
+                    raise TimeoutError(f"TTS生成超时 ({self.timeout_per_chunk}秒)")
+        except ImportError:
+            pass
+        
+        # 同步 TTS 调用（兼容回调函数）
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(self.tts_engine, text)
             try:
