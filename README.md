@@ -1,89 +1,177 @@
-# 多模态 AI Agent MVP - 推理与函数调用架构
+# 🤖 AI Agent + TTS 语音助手
+
+**生产级 AI 语音交互系统 - OpenAI + LangChain + Edge TTS**
+
+<p align="center">
+  <img src="https://img.shields.io/badge/OpenAI-GPT--4-blue?style=for-the-badge&logo=openai" />
+  <img src="https://img.shields.io/badge/LangChain-Agent-green?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/TTS-Edge%20TTS-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Python-3.8%2B-yellow?style=for-the-badge&logo=python" />
+</p>
+
+---
 
 ## 🎯 项目概述
 
-这是一个**具有推理能力和自主函数调用的 LLM Agent 架构**，采用解耦设计，LLM 负责推理决策，工具负责具体执行。
+这是一个**生产级 AI 语音交互系统**，结合了：
 
-### 核心特性
+- 🧠 **OpenAI GPT-4** - 强大的推理能力
+- 🛠️ **LangChain 工具池** - 17 个智能工具
+- 🗣️ **Edge TTS** - 高质量语音合成
+- ⚡ **KV Cache 优化** - 多轮对话加速 3-5 倍
 
-✅ **推理能力**: 基于 OpenAI GPT-4 的强大推理能力  
-✅ **自主工具调用**: LLM 自主决策何时调用哪个工具  
-✅ **解耦架构**: LLM 与工具完全解耦，易于扩展  
-✅ **Function Calling**: 使用 OpenAI 原生 Function Calling  
-✅ **ReAct 模式**: Reasoning + Acting 循环推理
+### ✨ 核心特性
+
+| 特性                  | 说明                                       | 状态 |
+| --------------------- | ------------------------------------------ | ---- |
+| **100% 可靠工具调用** | OpenAI 原生 API，`tool_choice` 强制调用    | ✅   |
+| **17 个智能工具**     | 计算器、时间、图书馆、前台接待等           | ✅   |
+| **KV Cache 优化**     | 系统提示词缓存，对话历史缓存               | ✅   |
+| **TTS 语音合成**      | Edge TTS 免费高质量，支持切换 Azure/OpenAI | ✅   |
+| **真实音频播放**      | pygame 实时播放，防重叠机制                | ✅   |
+| **推理过程可视化**    | 完整展示工具选择和参数决策                 | ✅   |
+| **范型 TTS 接口**     | 轻松切换不同 TTS 服务                      | ✅   |
 
 ## 📁 项目结构
 
 ```
-agent_mvp/
-├── config.py           # 配置管理
-├── tools.py            # 工具模块（计算器等）
-├── agent.py            # Agent核心逻辑
-├── test_agent.py       # 测试脚本
-├── requirements.txt    # 依赖包
-└── README.md          # 本文件
+robot_agent_mindflow/
+├── 📄 核心文件
+│   ├── agent_hybrid.py          # 混合架构 Agent（OpenAI + LangChain）
+│   ├── tools.py                 # 17 个 LangChain 工具
+│   ├── tts_interface.py         # TTS 范型接口（Edge/Azure/OpenAI）
+│   ├── tts_optimizer.py         # TTS 文本优化 + 音频播放管理
+│   ├── voice_feedback.py        # 语音反馈（思考提示）
+│   └── config.py                # 配置管理
+│
+├── 🎬 演示程序
+│   ├── demo_hybrid.py           # 主交互演示（推荐）✨
+│   └── test_tts_integration.py  # TTS 功能测试
+│
+├── 📚 文档
+│   ├── README.md                # 本文件
+│   ├── 快速开始.md              # 5 分钟上手指南
+│   ├── TTS配置说明.md           # TTS 详细配置
+│   ├── TTS集成总结.md           # TTS 集成报告
+│   ├── 项目结构说明.md          # 架构文档
+│   ├── 混合架构优化报告.md      # 性能优化报告
+│   └── 前台接待Agent说明.md     # 业务场景示例
+│
+├── 🗑️ 归档文件
+│   └── waste/                   # 旧版本文件（已归档）
+│
+└── ⚙️ 配置文件
+    ├── requirements.txt         # Python 依赖
+    ├── .env.example             # 环境变量模板
+    ├── .gitignore              # Git 忽略规则
+    └── .env                    # 环境变量（需自行创建）
 ```
 
 ## 🏗️ 架构设计
 
+### 混合架构流程图
+
 ```
-┌─────────────────────────────────────────────┐
-│           用户输入 (User Input)              │
-└─────────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────────┐
-│      Agent 编排层 (ReasoningAgent)          │
-│      • 接收输入                              │
-│      • 管理推理流程                          │
-│      • 协调LLM和工具                         │
-└─────────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────────┐
-│       LLM 推理核心 (GPT-4)                  │
-│       • 理解问题                             │
-│       • 推理分析                             │
-│       • 决策调用哪个工具                     │
-│       • 生成最终答案                         │
-└─────────────────────────────────────────────┘
-                    ↓
-        ┌───────────┴───────────┐
-        ↓                       ↓
-┌───────────────┐      ┌────────────────┐
-│ 计算器工具     │      │  未来工具...    │
-│ (独立模块)     │      │  (可扩展)       │
-└───────────────┘      └────────────────┘
+┌────────────────────────────────────────────────────────┐
+│                    用户语音/文本输入                      │
+└────────────────────────────────────────────────────────┘
+                            ↓
+┌────────────────────────────────────────────────────────┐
+│               混合架构 Agent (agent_hybrid.py)           │
+│                                                          │
+│  ┌────────────────┐          ┌──────────────────┐     │
+│  │  OpenAI API    │          │  LangChain Tools │     │
+│  │  • Function    │  ◄────►  │  • 17 个工具     │     │
+│  │    Calling     │          │  • 即插即用      │     │
+│  │  • GPT-4推理   │          │  • 独立执行      │     │
+│  └────────────────┘          └──────────────────┘     │
+│          ↓                           ↓                  │
+│  ┌────────────────────────────────────────────┐       │
+│  │        KV Cache 优化 (自动缓存)            │       │
+│  │  • 系统提示词缓存 (50% off)                 │       │
+│  │  • 对话历史缓存 (多轮加速)                  │       │
+│  └────────────────────────────────────────────┘       │
+└────────────────────────────────────────────────────────┘
+                            ↓
+┌────────────────────────────────────────────────────────┐
+│                TTS 优化器 (tts_optimizer.py)             │
+│  • 文本清理 + 智能分句                                   │
+│  • 异步音频生成 + 防重叠播放                             │
+│  • 失败重试 + 降级策略                                   │
+└────────────────────────────────────────────────────────┘
+                            ↓
+┌────────────────────────────────────────────────────────┐
+│              TTS 引擎 (tts_interface.py)                 │
+│  ┌─────────┐  ┌──────────┐  ┌───────────┐            │
+│  │Edge TTS │  │Azure TTS │  │OpenAI TTS │            │
+│  │(默认)   │  │(付费)    │  │(付费)     │            │
+│  └─────────┘  └──────────┘  └───────────┘            │
+└────────────────────────────────────────────────────────┘
+                            ↓
+┌────────────────────────────────────────────────────────┐
+│               音频播放 (pygame)                          │
+│  • 阻塞式播放 • 精确停顿 • 支持中断                      │
+└────────────────────────────────────────────────────────┘
 ```
+
+### 核心优势
+
+1. **OpenAI 原生 API** → 100% 可靠的工具调用
+2. **LangChain 工具池** → 丰富的工具生态
+3. **KV Cache 优化** → 自动缓存，成本减半
+4. **范型 TTS 接口** → 一行代码切换服务
 
 ## 🚀 快速开始
 
-### 1. 安装依赖
+### 5 分钟上手
 
 ```bash
+# 1. 克隆项目
+git clone https://github.com/Lloyd-lei/robot_agent_mindflow.git
+cd robot_agent_mindflow
+
+# 2. 安装依赖
 pip install -r requirements.txt
+
+# 3. 配置 API 密钥
+cp .env.example .env
+# 编辑 .env 文件，填入你的 OpenAI API 密钥
+
+# 4. 运行 TTS 测试
+python test_tts_integration.py
+
+# 5. 启动 AI Agent
+python demo_hybrid.py
 ```
 
-### 2. 配置环境变量
+### 环境变量配置
 
-创建 `.env` 文件（已提供 API Key 在 config.py 中）：
+编辑 `.env` 文件：
 
-```bash
-OPENAI_API_KEY=your_api_key_here
+```env
+# OpenAI API 配置
+OPENAI_API_KEY=sk-proj-你的密钥
+
+# 模型配置
 LLM_MODEL=gpt-4-turbo-preview
 TEMPERATURE=0
 ```
 
-### 3. 运行测试
+💡 **获取 OpenAI API 密钥**: https://platform.openai.com/api-keys
 
-```bash
-# 完整测试
-python test_agent.py
+### 试试这些命令
 
-# 或者直接测试Agent
-python agent.py
+启动 `demo_hybrid.py` 后，试试：
 
-# 或者测试工具
-python tools.py
 ```
+现在几点了？
+计算 sqrt(2) 保留 3 位小数
+图书馆有关于 Python 的书吗？
+帮我登记访客信息
+再见（自动结束对话）
+```
+
+📖 **详细教程**: 查看 `快速开始.md`
 
 ## 💡 核心功能演示
 

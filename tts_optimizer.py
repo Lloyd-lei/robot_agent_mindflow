@@ -329,9 +329,15 @@ class TTSAudioManager:
                 self._generate_one_chunk(chunk_id, simulate_mode)
     
     def _generate_one_chunk(self, chunk_id: int, simulate_mode: bool):
-        """生成单个音频分片（带重试）"""
+        """生成单个音频分片（带重试和时间戳）"""
+        from datetime import datetime
+        
         chunk = self.audio_chunks[chunk_id]
         chunk.status = AudioStatus.GENERATING
+        
+        # ⏰ 时间戳：开始生成
+        ts_gen_start = time.perf_counter()
+        ts_gen_start_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         
         for attempt in range(self.max_retries):
             if self.stop_requested:
@@ -339,6 +345,11 @@ class TTSAudioManager:
             
             try:
                 print(f"🔄 [生成 {chunk_id + 1}/{self.total_chunks}] 尝试 {attempt + 1}/{self.max_retries}")
+                print(f"   ⏰ 开始时间: {ts_gen_start_str}")
+                print(f"   📝 文本长度: {len(chunk.text)} 字符")
+                
+                # ⏰ TTS 调用开始
+                ts_tts_start = time.perf_counter()
                 
                 if simulate_mode:
                     # 模拟模式
@@ -347,28 +358,47 @@ class TTSAudioManager:
                     # 真实TTS引擎
                     audio_data = self._call_tts_with_timeout(chunk.text)
                 
+                # ⏰ TTS 调用结束
+                ts_tts_end = time.perf_counter()
+                ts_gen_end_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                tts_time = ts_tts_end - ts_tts_start
+                total_gen_time = ts_tts_end - ts_gen_start
+                
                 # 成功
                 chunk.audio_data = audio_data
                 chunk.duration = len(chunk.text) * 0.15  # 估算时长（秒）
                 chunk.status = AudioStatus.READY
+                
                 print(f"✅ [Chunk {chunk_id}] 生成成功")
+                print(f"   ⏰ 完成时间: {ts_gen_end_str}")
+                print(f"   📊 生成统计:")
+                print(f"      - TTS耗时: {tts_time*1000:.1f}ms")
+                print(f"      - 总耗时: {total_gen_time*1000:.1f}ms")
+                print(f"      - 音频大小: {len(audio_data):,} bytes")
+                print(f"      - 字符/秒: {len(chunk.text)/tts_time:.1f}")
                 return
                 
             except TimeoutError:
                 chunk.retry_count += 1
                 chunk.error_message = f"超时（尝试 {attempt + 1}）"
-                print(f"⏰ [Chunk {chunk_id}] 超时，重试...")
+                ts_timeout = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                print(f"⏰ [Chunk {chunk_id}] 超时 at {ts_timeout}，重试...")
                 time.sleep(0.5)
                 
             except Exception as e:
                 chunk.retry_count += 1
                 chunk.error_message = str(e)
-                print(f"❌ [Chunk {chunk_id}] 错误: {e}")
+                ts_error = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                print(f"❌ [Chunk {chunk_id}] 错误 at {ts_error}: {e}")
                 time.sleep(0.5)
         
         # 所有重试失败
         chunk.status = AudioStatus.FAILED
-        print(f"💥 [Chunk {chunk_id}] 生成失败，已达最大重试次数")
+        ts_fail = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        total_fail_time = time.perf_counter() - ts_gen_start
+        print(f"💥 [Chunk {chunk_id}] 生成失败 at {ts_fail}")
+        print(f"   ⏰ 总耗时: {total_fail_time*1000:.1f}ms")
+        print(f"   🔄 重试次数: {self.max_retries}")
     
     def _sequential_playback(self,
                             on_chunk_start: Optional[Callable],
@@ -423,31 +453,67 @@ class TTSAudioManager:
         return all_success
     
     def _play_one_chunk(self, chunk: AudioChunk, simulate_mode: bool) -> bool:
-        """播放单个音频分片（线程安全）"""
+        """播放单个音频分片（线程安全）- 带时间戳记录"""
         # 获取播放锁（防止重叠）
         with self.play_lock:
             chunk.status = AudioStatus.PLAYING
             self.current_playing = chunk.chunk_id
             
+            # ⏰ 时间戳：开始播放
+            ts_start_perf = time.perf_counter()  # 高精度计时器
+            ts_start_wall = time.time()          # 系统墙钟时间
+            from datetime import datetime
+            ts_start_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]  # 毫秒精度
+            
+            print(f"\n{'─'*70}")
             print(f"🔊 [播放 {chunk.chunk_id + 1}/{self.total_chunks}] {chunk.text[:40]}...")
+            print(f"⏰ 开始时间: {ts_start_str}")
+            print(f"   - perf_counter: {ts_start_perf:.6f}s")
+            print(f"   - wall_clock:   {ts_start_wall:.6f}s")
             
             try:
                 # 阻塞式播放
                 if simulate_mode:
                     self._simulate_play(chunk)
                 else:
-                    self._blocking_play(chunk.audio_data)
+                    play_result = self._blocking_play(chunk.audio_data)
+                    if play_result:
+                        print(f"   音频播放耗时: {play_result['audio_duration']:.3f}s")
+                
+                # ⏰ 时间戳：音频播放完成，开始停顿
+                ts_pause_start_perf = time.perf_counter()
+                ts_pause_start_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
                 
                 # 精确停顿
                 self._precise_pause(chunk.pause_after)
                 
+                # ⏰ 时间戳：停顿完成
+                ts_end_perf = time.perf_counter()
+                ts_end_wall = time.time()
+                ts_end_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                
                 chunk.status = AudioStatus.COMPLETED
+                
+                # 计算各阶段耗时
+                total_time = ts_end_perf - ts_start_perf
+                pause_time = ts_end_perf - ts_pause_start_perf
+                audio_time = ts_pause_start_perf - ts_start_perf
+                
                 print(f"✅ [完成 {chunk.chunk_id + 1}]")
+                print(f"⏰ 结束时间: {ts_end_str}")
+                print(f"   - perf_counter: {ts_end_perf:.6f}s")
+                print(f"   - wall_clock:   {ts_end_wall:.6f}s")
+                print(f"📊 耗时统计:")
+                print(f"   - 音频播放: {audio_time:.3f}s")
+                print(f"   - 停顿时间: {pause_time:.3f}s ({chunk.pause_after}ms)")
+                print(f"   - 总计时长: {total_time:.3f}s")
+                print(f"{'─'*70}\n")
                 
                 return True
                 
             except Exception as e:
-                print(f"❌ [播放失败] Chunk {chunk.chunk_id}: {e}")
+                ts_error = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                print(f"❌ [播放失败] Chunk {chunk.chunk_id} at {ts_error}: {e}")
                 chunk.status = AudioStatus.FAILED
                 return False
             
@@ -456,28 +522,71 @@ class TTSAudioManager:
     
     def _blocking_play(self, audio_data: bytes):
         """
-        阻塞式音频播放 - 使用 pygame 实现真实播放
+        阻塞式音频播放 - 使用 pygame 实现真实播放（带详细时间戳）
+        
+        Returns:
+            dict: {'audio_duration': float, 'load_time': float, 'play_time': float}
         """
+        from datetime import datetime
+        
         try:
             import pygame
+            
+            # ⏰ 时间戳：开始加载音频
+            ts_load_start = time.perf_counter()
+            ts_load_start_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
             
             # 初始化 pygame mixer（如果尚未初始化）
             if not pygame.mixer.get_init():
                 pygame.mixer.init()
+                print(f"   🎵 pygame mixer 初始化完成")
             
             # 从字节数据加载音频
             audio_io = io.BytesIO(audio_data)
             pygame.mixer.music.load(audio_io)
             
+            # ⏰ 时间戳：加载完成，开始播放
+            ts_play_start = time.perf_counter()
+            ts_play_start_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            load_time = ts_play_start - ts_load_start
+            
+            print(f"   ⏰ 音频加载: {ts_load_start_str} -> {ts_play_start_str} ({load_time*1000:.1f}ms)")
+            print(f"   📦 音频大小: {len(audio_data):,} bytes")
+            
             # 播放音频
             pygame.mixer.music.play()
+            print(f"   ▶️  开始播放: {ts_play_start_str}")
             
             # 阻塞等待播放完成
+            play_loop_count = 0
             while pygame.mixer.music.get_busy():
                 if self.stop_requested:
                     pygame.mixer.music.stop()
+                    print(f"   ⏸️  用户中断播放")
                     break
                 time.sleep(0.01)
+                play_loop_count += 1
+            
+            # ⏰ 时间戳：播放结束
+            ts_play_end = time.perf_counter()
+            ts_play_end_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            play_time = ts_play_end - ts_play_start
+            total_time = ts_play_end - ts_load_start
+            
+            print(f"   ⏹️  播放结束: {ts_play_end_str}")
+            print(f"   📊 播放统计:")
+            print(f"      - 加载耗时: {load_time*1000:.1f}ms")
+            print(f"      - 播放耗时: {play_time*1000:.1f}ms")
+            print(f"      - 总计耗时: {total_time*1000:.1f}ms")
+            print(f"      - 轮询次数: {play_loop_count}")
+            
+            return {
+                'audio_duration': play_time,
+                'load_time': load_time,
+                'play_time': play_time,
+                'total_time': total_time,
+                'audio_size': len(audio_data)
+            }
             
         except ImportError:
             print("⚠️  pygame 未安装，使用文本模拟模式")
@@ -485,12 +594,28 @@ class TTSAudioManager:
             # 降级：模拟播放时间
             estimated_duration = len(audio_data) / 16000  # 粗略估算
             self._precise_pause(int(estimated_duration * 1000))
+            return {
+                'audio_duration': estimated_duration,
+                'load_time': 0,
+                'play_time': estimated_duration,
+                'total_time': estimated_duration,
+                'audio_size': len(audio_data)
+            }
             
         except Exception as e:
-            print(f"⚠️  音频播放出错: {e}")
+            ts_error = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+            print(f"⚠️  音频播放出错 at {ts_error}: {e}")
             # 降级：模拟播放时间
             estimated_duration = len(audio_data) / 16000
             self._precise_pause(int(estimated_duration * 1000))
+            return {
+                'audio_duration': estimated_duration,
+                'load_time': 0,
+                'play_time': estimated_duration,
+                'total_time': estimated_duration,
+                'audio_size': len(audio_data),
+                'error': str(e)
+            }
     
     def _simulate_play(self, chunk: AudioChunk):
         """模拟播放（用于测试）"""

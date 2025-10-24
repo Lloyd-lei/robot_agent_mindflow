@@ -5,7 +5,7 @@
 已成功集成 **Edge TTS** 作为默认 TTS 服务！
 
 - ✅ Edge TTS 合成成功
-- ✅ pygame 音频播放成功  
+- ✅ pygame 音频播放成功
 - ✅ Agent 自动集成
 - ✅ 范型接口支持
 
@@ -14,7 +14,9 @@
 ## 🎯 核心特性
 
 ### 1️⃣ **范型接口设计**
+
 所有 TTS 服务统一接口，轻松切换：
+
 ```python
 from tts_interface import TTSFactory, TTSProvider
 
@@ -29,7 +31,9 @@ audio = await tts.synthesize("你好，世界！")
 ```
 
 ### 2️⃣ **自动集成**
+
 Agent 自动使用 Edge TTS，无需额外配置：
+
 ```python
 from agent_hybrid import HybridReasoningAgent
 
@@ -46,24 +50,28 @@ agent = HybridReasoningAgent(
 ### 1. **Edge TTS**（当前默认）⭐
 
 **优势**：
+
 - ✅ 完全免费
 - ✅ 音质优秀（与 Azure 同源）
 - ✅ 无需 API 密钥
 - ✅ 支持多种中文语音
 
 **风险**：
+
 - ⚠️ 非官方接口（可能失效）
 - ⚠️ 不保证稳定性
 
 **推荐场景**：开发测试、个人项目
 
 **使用方法**：
+
 ```python
 # 已自动启用，无需额外配置
 agent = HybridReasoningAgent(enable_tts=True)
 ```
 
 **可选语音**：
+
 ```python
 from tts_interface import TTSFactory, TTSProvider
 
@@ -82,18 +90,21 @@ tts = TTSFactory.create_tts(
 ### 2. **Azure TTS**（官方付费）
 
 **优势**：
+
 - ✅ 官方支持，稳定可靠
 - ✅ 99.9% SLA 保证
 - ✅ 商用合规
 - ✅ 支持 SSML 高级控制
 
 **成本**：
+
 - 💰 免费额度：每月 50 万字符
 - 💰 付费价格：$16/百万字符
 
 **推荐场景**：生产环境、商业项目
 
 **使用方法**：
+
 ```python
 # 1. 安装依赖
 # pip install azure-cognitiveservices-speech
@@ -124,19 +135,23 @@ agent = HybridReasoningAgent(
 ### 3. **OpenAI TTS**
 
 **优势**：
+
 - ✅ 集成简单（已有 OpenAI API）
 - ✅ 支持流式合成
 - ✅ 音质优秀
 
 **成本**：
+
 - 💰 $15/百万字符
 
 **限制**：
+
 - ❌ 中文语音较少（通用语音，非专门优化）
 
 **推荐场景**：已使用 OpenAI 的项目
 
 **使用方法**：
+
 ```python
 from tts_interface import TTSFactory, TTSProvider
 
@@ -227,24 +242,24 @@ agent = HybridReasoningAgent(
 
 ### Edge TTS / Azure TTS（中文）
 
-| 语音名称 | 性别 | 特点 | 推荐场景 |
-|---------|-----|------|---------|
-| `zh-CN-XiaoxiaoNeural` | 女 | 温柔亲切 | 客服、助手（默认）|
-| `zh-CN-XiaomoNeural` | 女 | 知性温和 | 教育、专业讲解 |
-| `zh-CN-XiaoyiNeural` | 女 | 成熟稳重 | 商务、正式场合 |
-| `zh-CN-YunxiNeural` | 男 | 阳光自然 | 客服、助手 |
-| `zh-CN-YunyangNeural` | 男 | 新闻播报 | 播报、通知 |
-| `zh-CN-YunjianNeural` | 男 | 体育解说 | 运动、激情场景 |
+| 语音名称               | 性别 | 特点     | 推荐场景           |
+| ---------------------- | ---- | -------- | ------------------ |
+| `zh-CN-XiaoxiaoNeural` | 女   | 温柔亲切 | 客服、助手（默认） |
+| `zh-CN-XiaomoNeural`   | 女   | 知性温和 | 教育、专业讲解     |
+| `zh-CN-XiaoyiNeural`   | 女   | 成熟稳重 | 商务、正式场合     |
+| `zh-CN-YunxiNeural`    | 男   | 阳光自然 | 客服、助手         |
+| `zh-CN-YunyangNeural`  | 男   | 新闻播报 | 播报、通知         |
+| `zh-CN-YunjianNeural`  | 男   | 体育解说 | 运动、激情场景     |
 
 ### OpenAI TTS
 
-| 语音名称 | 特点 |
-|---------|------|
-| `alloy` | 中性，平衡 |
-| `echo` | 男性，沉稳 |
-| `fable` | 英式，优雅 |
-| `onyx` | 男性，深沉 |
-| `nova` | 女性，活泼 |
+| 语音名称  | 特点       |
+| --------- | ---------- |
+| `alloy`   | 中性，平衡 |
+| `echo`    | 男性，沉稳 |
+| `fable`   | 英式，优雅 |
+| `onyx`    | 男性，深沉 |
+| `nova`    | 女性，活泼 |
 | `shimmer` | 女性，温柔 |
 
 ---
@@ -258,7 +273,7 @@ from tts_interface import TTSFactory, TTSProvider
 
 class MultiTTSAgent:
     """支持动态切换 TTS 的 Agent"""
-    
+
     def __init__(self):
         self.tts_providers = {
             'edge': TTSFactory.create_tts(
@@ -273,7 +288,7 @@ class MultiTTSAgent:
             )
         }
         self.current_provider = 'edge'
-    
+
     def switch_tts(self, provider: str):
         """切换 TTS 服务"""
         if provider in self.tts_providers:
@@ -281,7 +296,7 @@ class MultiTTSAgent:
             print(f"✅ 已切换到 {provider.upper()} TTS")
         else:
             print(f"❌ 不支持的 TTS: {provider}")
-    
+
     def synthesize(self, text: str):
         """使用当前 TTS 合成"""
         tts = self.tts_providers[self.current_provider]
@@ -293,16 +308,19 @@ class MultiTTSAgent:
 ## 🚀 快速测试
 
 ### 测试 Edge TTS
+
 ```bash
 python test_tts_integration.py
 ```
 
 ### 测试 Agent + TTS
+
 ```bash
 python demo_hybrid.py
 ```
 
 输入示例：
+
 - "现在几点了？"
 - "计算 sqrt(2) 保留 3 位小数"
 - "图书馆有关于 Python 的书吗？"
@@ -330,15 +348,18 @@ pip install -r requirements.txt
 ## ⚠️ 注意事项
 
 1. **Edge TTS 稳定性**
+
    - 完全依赖微软服务
    - 可能会突然失效
    - 建议生产环境准备备用方案
 
 2. **网络连接**
+
    - TTS 需要网络访问
    - 建议添加重试机制（已内置）
 
 3. **音频格式**
+
    - Edge TTS: MP3
    - Azure TTS: WAV/MP3（可配置）
    - OpenAI TTS: MP3/WAV/FLAC/OPUS
@@ -358,7 +379,7 @@ pip install -r requirements.txt
 - ✅ **开箱即用**：默认配置已优化
 
 需要帮助？查看：
+
 - `test_tts_integration.py` - 测试脚本
 - `tts_interface.py` - TTS 接口定义
 - `demo_hybrid.py` - 完整示例
-

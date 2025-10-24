@@ -21,32 +21,33 @@ except ImportError:
 def print_header():
     """打印欢迎界面"""
     print("\n" + "=" * 80)
-    print(Fore.CYAN + Style.BRIGHT + "🚀 混合架构AI Agent - 性能优化版")
+    print(Fore.CYAN + Style.BRIGHT + "🚀 混合架构AI Agent - 语音交互版")
     print("=" * 80)
     print("\n" + Fore.GREEN + "✨ 核心优势：")
     print("  📊 OpenAI原生API - 100%可靠的工具调用")
-    print("  🛠️  LangChain工具池 - 11个强大工具")
+    print("  🛠️  LangChain工具池 - 17个强大工具")
     print("  ⚡ KV Cache优化 - 多轮对话速度提升3-5倍")
-    print("  💰 Prompt Caching - 成本节省50%")
-    print("\n" + Fore.YELLOW + "🎯 改进效果：")
-    print("  • end_conversation工具 - 100%被调用（之前几乎不调用）")
-    print("  • 数学计算工具 - 强制调用（之前经常跳过）")
-    print("  • 推理过程 - 完全透明可见")
-    print("  • 多轮对话 - 第2轮起速度提升3-5倍")
-    print("\n" + "-" * 80)
+    print("  🗣️  Edge TTS - 真实语音播放（晓晓语音）")
+    print("\n" + Fore.YELLOW + "🎯 语音功能：")
+    print("  • 🔊 真实语音播放 - Edge TTS 免费高质量")
+    print("  • 🎵 智能分句 - 自然流畅的语音节奏")
+    print("  • 🛡️  防重叠播放 - 稳定可靠的音频管理")
+    print("  • 💡 推理可视化 - 完整展示思考过程")
+    print("\n" + Fore.RED + "🔊 请确保扬声器已开启，音量适中！")
+    print("-" * 80)
 
 
 def print_examples():
     """打印示例"""
-    print("\n" + Fore.MAGENTA + "💡 试试这些命令：")
+    print("\n" + Fore.MAGENTA + "💡 试试这些命令（会播放语音）：")
     examples = [
-        "1️⃣  计算sqrt(2)保留3位小数",
-        "2️⃣  现在几点了？",
-        "3️⃣  统计'人工智能'有多少字",
-        "4️⃣  100摄氏度等于多少华氏度",
-        "5️⃣  图书馆有哪些关于Python的书",
-        "6️⃣  明天上午10点提醒我开会",
-        "7️⃣  再见（测试自动结束）✨",
+        "1️⃣  现在几点了？（语音播报时间）",
+        "2️⃣  计算sqrt(2)保留3位小数（听听计算结果）",
+        "3️⃣  图书馆有哪些关于Python的书（JSON转语音）",
+        "4️⃣  100摄氏度等于多少华氏度（单位转换）",
+        "5️⃣  帮我登记访客信息（前台接待）",
+        "6️⃣  明天上午10点提醒我开会（设置提醒）",
+        "7️⃣  再见（自动结束 + 语音道别）✨",
     ]
     for ex in examples:
         print(f"  {ex}")
@@ -56,6 +57,7 @@ def print_examples():
     print("  • 'help' - 查看帮助")
     print("  • 'stats' - 查看缓存统计")
     print("  • 'clear' - 清除对话历史")
+    print("\n" + Fore.YELLOW + "💡 提示：Agent回答后会自动播放语音！")
     print("-" * 80)
 
 
@@ -130,13 +132,18 @@ def main():
             print(f"{Fore.MAGENTA}{'='*70}")
             
             start_time = time.time()
-            result = agent.run_with_tts_demo(user_input, show_text_and_tts=True)
+            # 使用真实 TTS 播放（simulate_mode=False 启用真实语音）
+            result = agent.run_with_tts(user_input, show_reasoning=True, simulate_mode=False)
             response_time = time.time() - start_time
             
             if result['success']:
                 # 显示性能统计
                 print(f"\n{Fore.GREEN}⚡ 响应耗时: {Fore.WHITE}{response_time:.2f}秒")
                 print(f"{Fore.GREEN}📞 工具调用: {Fore.WHITE}{result['tool_calls']}次")
+                if result.get('total_tts_chunks', 0) > 0:
+                    print(f"{Fore.GREEN}🗣️  TTS分段: {Fore.WHITE}{result['total_tts_chunks']}个")
+                    if result.get('tts_success'):
+                        print(f"{Fore.GREEN}🔊 语音播放: {Fore.WHITE}✅ 完成")
                 if turn > 1:
                     print(f"{Fore.GREEN}🚀 KV Cache: {Fore.WHITE}已优化（第{turn}轮）")
                 
@@ -158,9 +165,9 @@ def main():
 
 
 def test_mode():
-    """测试模式 - 对比性能"""
+    """测试模式 - 对比性能（带真实语音）"""
     print("\n" + "=" * 80)
-    print(Fore.CYAN + Style.BRIGHT + "🧪 混合架构性能测试")
+    print(Fore.CYAN + Style.BRIGHT + "🧪 混合架构性能测试 + TTS 播放")
     print("=" * 80)
     
     agent = HybridReasoningAgent(enable_cache=True, enable_tts=True, voice_mode=True)
@@ -172,7 +179,7 @@ def test_mode():
         ("对话结束", "好的，再见！"),
     ]
     
-    print("\n开始测试...\n")
+    print("\n开始测试...（每次都会播放语音）\n")
     
     for i, (name, query) in enumerate(test_cases, 1):
         print(f"{Fore.YELLOW}{'─'*70}")
@@ -180,13 +187,17 @@ def test_mode():
         print(f"{Fore.YELLOW}{'─'*70}")
         
         start_time = time.time()
-        result = agent.run(query, show_reasoning=False)
+        # 使用真实 TTS 播放
+        result = agent.run_with_tts(query, show_reasoning=False, simulate_mode=False)
         elapsed = time.time() - start_time
         
         if result['success']:
             print(f"{Fore.GREEN}✅ 成功")
             print(f"   耗时: {elapsed:.2f}秒")
             print(f"   工具调用: {result['tool_calls']}次")
+            if result.get('total_tts_chunks', 0) > 0:
+                print(f"   TTS分段: {result['total_tts_chunks']}个")
+                print(f"   语音播放: {'✅ 完成' if result.get('tts_success') else '❌ 失败'}")
             if i > 1:
                 print(f"   KV Cache: 已优化")
         else:
