@@ -907,8 +907,8 @@ class HybridReasoningAgent:
                 
                 time.sleep(0.5)
             
-            # 停止管道
-            self.streaming_pipeline.stop(wait=True, timeout=5.0)
+            # 停止管道（🔧 注释掉，保持管道运行以支持多轮对话）
+            # self.streaming_pipeline.stop(wait=True, timeout=5.0)
             
             # === 阶段7：更新对话历史 ===
             if self.enable_cache:

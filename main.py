@@ -215,6 +215,12 @@ def main(streaming=False):
             print(f"\n{Fore.RED}❌ 发生错误: {str(e)}\n")
             import traceback
             traceback.print_exc()
+    
+    # 🔧 程序结束时清理资源
+    print(f"\n{Fore.YELLOW}🧹 清理资源...{Style.RESET_ALL}")
+    if hasattr(agent, 'streaming_pipeline') and agent.streaming_pipeline:
+        agent.streaming_pipeline.stop(wait=True, timeout=5.0)
+    print(f"{Fore.GREEN}✅ 清理完成{Style.RESET_ALL}\n")
 
 
 def test_mode():
