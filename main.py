@@ -2,8 +2,13 @@
 混合架构交互式Demo
 展示OpenAI原生API + LangChain工具 + KV Cache的威力
 """
+from conversation_session import ConversationSession, SessionNotStartedError, SessionTimeoutError
 from agent_hybrid import HybridReasoningAgent
+from logger_config import setup_logger
 import time
+
+# 设置日志系统
+logger = setup_logger(name="main", level="INFO")
 
 # 尝试导入colorama
 try:
@@ -66,6 +71,7 @@ def print_examples():
     print("  • 'q' 或 'quit' - 退出")
     print("  • 'help' - 查看帮助")
     print("  • 'stats' - 查看缓存统计")
+    print("  • 'history' - 查看对话历史摘要")
     print("  • 'clear' - 清除对话历史")
     print("\n" + Fore.YELLOW + "💡 提示：Agent回答后会自动播放语音！")
     print("-" * 80)
@@ -89,138 +95,149 @@ def display_cache_stats(agent):
     print(f"{Fore.CYAN}{'='*70}\n")
 
 
-def main(streaming=False):
+def main(streaming=True):
     """
-    主函数
+    主函数（使用会话管理器）
     
     Args:
         streaming: 是否使用流式TTS模式（推荐）
     """
     print_header(streaming_mode=streaming)
     
-    # 初始化Agent
+    # 创建会话（使用上下文管理器自动清理资源）
     mode_text = "流式TTS模式 ⚡" if streaming else "批量TTS模式"
-    print(f"\n{Fore.CYAN}⏳ 正在初始化混合架构Agent（{mode_text}）...")
+    print(f"\n{Fore.CYAN}⏳ 正在初始化会话（{mode_text}）...")
     start_time = time.time()
     
-    if streaming:
-        # 流式TTS模式（推荐）
-        agent = HybridReasoningAgent(
+    try:
+        with ConversationSession(
+            tts_provider="edge",
+            tts_voice="zh-CN-XiaoxiaoNeural",
             enable_cache=True,
-            enable_streaming_tts=True,
-            voice_mode=True
-        )
-    else:
-        # 传统批量TTS模式
-        agent = HybridReasoningAgent(
-            enable_cache=True,
-            enable_tts=True,
-            voice_mode=True
-        )
-    
-    init_time = time.time() - start_time
-    print(f"{Fore.GREEN}✅ 初始化完成！耗时: {init_time:.2f}秒\n")
-    
-    print_examples()
-    
-    # 交互循环
-    turn = 0
-    while True:
-        try:
-            # 获取用户输入
-            user_input = input(f"\n{Fore.CYAN}💬 您: {Style.RESET_ALL}").strip()
+            show_reasoning=True,
+            timeout=60,           # 单轮对话超时60秒
+            tts_wait_timeout=60   # TTS等待超时30秒
+        ) as session:
             
-            # 退出命令
-            if user_input.lower() in ['q', 'quit', 'exit', '退出']:
-                print(f"\n{Fore.YELLOW}👋 再见！感谢使用混合架构AI Agent！\n")
-                break
+            init_time = time.time() - start_time
+            print(f"{Fore.GREEN}✅ 会话初始化完成！耗时: {init_time:.2f}秒\n")
             
-            # 帮助命令
-            if user_input.lower() in ['help', '帮助', 'h']:
-                print_examples()
-                continue
+            # 尝试恢复之前的对话历史
+            if session.load_history():
+                summary = session.get_history_summary()
+                print(f"{Fore.CYAN}📥 已恢复对话历史: {summary['turns']}轮对话\n")
             
-            # 统计命令
-            if user_input.lower() == 'stats':
-                display_cache_stats(agent)
-                continue
+            print_examples()
             
-            # 清除缓存
-            if user_input.lower() == 'clear':
-                agent.clear_cache()
-                print(f"{Fore.YELLOW}✅ 对话历史已清除\n")
-                continue
-            
-            # 空输入
-            if not user_input:
-                print(f"{Fore.RED}⚠️  请输入内容")
-                continue
-            
-            # 执行推理
-            turn += 1
-            print(f"\n{Fore.MAGENTA}{'='*70}")
-            print(f"{Fore.MAGENTA}🤔 对话轮次 {turn} - Agent正在思考...")
-            print(f"{Fore.MAGENTA}{'='*70}")
-            
-            start_time = time.time()
-            
-            # 根据模式选择不同的方法
-            if streaming:
-                # 流式TTS模式
-                result = agent.run_with_streaming_tts(user_input, show_reasoning=True)
-            else:
-                # 传统批量TTS模式
-                result = agent.run_with_tts(user_input, show_reasoning=True, simulate_mode=False)
-            
-            response_time = time.time() - start_time
-            
-            if result['success']:
-                # 显示性能统计
-                print(f"\n{Fore.GREEN}⚡ 响应耗时: {Fore.WHITE}{response_time:.2f}秒")
-                print(f"{Fore.GREEN}📞 工具调用: {Fore.WHITE}{result['tool_calls']}次")
-                
-                # 流式TTS统计
-                if result.get('streaming_stats'):
-                    stats = result['streaming_stats']
-                    print(f"{Fore.GREEN}🗣️  TTS统计:")
-                    print(f"   - 接收文本: {stats['text_received']}段")
-                    print(f"   - 生成音频: {stats['audio_generated']}段")
-                    print(f"   - 播放完成: {stats['audio_played']}段")
-                    if stats.get('audio_failed', 0) > 0:
-                        print(f"   - 生成失败: {stats['audio_failed']}段")
-                    if stats.get('text_dropped', 0) > 0:
-                        print(f"   - 丢弃文本: {stats['text_dropped']}段（背压）")
-                
-                # 传统TTS统计
-                elif result.get('total_tts_chunks', 0) > 0:
-                    print(f"{Fore.GREEN}🗣️  TTS分段: {Fore.WHITE}{result['total_tts_chunks']}个")
-                    if result.get('tts_success'):
-                        print(f"{Fore.GREEN}🔊 语音播放: {Fore.WHITE}✅ 完成")
-                
-                if turn > 1:
-                    print(f"{Fore.GREEN}🚀 KV Cache: {Fore.WHITE}已优化（第{turn}轮）")
-                
-                # 检查是否需要结束
-                if result.get('should_end'):
-                    print(f"\n{Fore.YELLOW}🔔 检测到对话结束信号")
-                    print(f"{Fore.YELLOW}👋 感谢使用！再见！\n")
+            # 交互循环
+            turn = 0
+            while True:
+                try:
+                    # 获取用户输入
+                    user_input = input(f"\n{Fore.CYAN}💬 您: {Style.RESET_ALL}").strip()
+                    
+                    # 退出命令
+                    if user_input.lower() in ['q', 'quit', 'exit', '退出']:
+                        print(f"\n{Fore.YELLOW}👋 再见！感谢使用混合架构AI Agent！\n")
+                        break
+                    
+                    # 帮助命令
+                    if user_input.lower() in ['help', '帮助', 'h']:
+                        print_examples()
+                        continue
+                    
+                    # 统计命令
+                    if user_input.lower() == 'stats':
+                        if hasattr(session, '_agent'):
+                            display_cache_stats(session._agent)
+                        else:
+                            print(f"{Fore.YELLOW}⚠️  会话未启动{Style.RESET_ALL}")
+                        continue
+                    
+                    # 历史摘要命令
+                    if user_input.lower() in ['history', '历史']:
+                        summary = session.get_history_summary()
+                        print(f"\n{Fore.CYAN}{'='*70}")
+                        print(f"{Fore.CYAN}📜 会话历史摘要")
+                        print(f"{Fore.CYAN}{'='*70}")
+                        print(f"{Fore.GREEN}会话ID: {Fore.WHITE}{summary['session_id']}")
+                        print(f"{Fore.GREEN}对话轮次: {Fore.WHITE}{summary['turns']}")
+                        print(f"{Fore.GREEN}消息总数: {Fore.WHITE}{summary['total_messages']}")
+                        print(f"{Fore.GREEN}缓存启用: {Fore.WHITE}{'是' if summary['cache_enabled'] else '否'}")
+                        print(f"{Fore.GREEN}已保存: {Fore.WHITE}{'是' if summary['has_history_file'] else '否'}")
+                        print(f"{Fore.CYAN}{'='*70}\n")
+                        continue
+                    
+                    # 清除缓存
+                    if user_input.lower() == 'clear':
+                        session.reset()
+                        print(f"{Fore.YELLOW}✅ 对话历史已清除\n")
+                        continue
+                    
+                    # 空输入
+                    if not user_input:
+                        print(f"{Fore.RED}⚠️  请输入内容")
+                        continue
+                    
+                    # 执行推理
+                    turn += 1
+                    print(f"\n{Fore.MAGENTA}{'='*70}")
+                    print(f"{Fore.MAGENTA}🤔 对话轮次 {turn} - Agent正在思考...")
+                    print(f"{Fore.MAGENTA}{'='*70}")
+                    
+                    # 单轮对话（带超时保护）
+                    result = session.chat(user_input)
+                    
+                    # 显示性能统计
+                    print(f"\n{Fore.GREEN}⚡ 响应耗时: {Fore.WHITE}{result.duration:.2f}秒")
+                    print(f"{Fore.GREEN}📞 工具调用: {Fore.WHITE}{result.tool_calls}次")
+                    
+                    # 流式TTS统计
+                    if result.streaming_stats:
+                        stats = result.streaming_stats
+                        print(f"{Fore.GREEN}🗣️  TTS统计:")
+                        print(f"   - 接收文本: {stats['text_received']}段")
+                        print(f"   - 生成音频: {stats['audio_generated']}段")
+                        print(f"   - 播放完成: {stats['audio_played']}段")
+                        if stats.get('audio_failed', 0) > 0:
+                            print(f"   - 生成失败: {stats['audio_failed']}段")
+                        if stats.get('text_dropped', 0) > 0:
+                            print(f"   - 丢弃文本: {stats['text_dropped']}段（背压）")
+                    
+                    if turn > 1:
+                        print(f"{Fore.GREEN}🚀 KV Cache: {Fore.WHITE}已优化（第{turn}轮）")
+                    
+                    # 检查是否需要结束
+                    if result.should_end:
+                        print(f"\n{Fore.YELLOW}🔔 检测到对话结束信号")
+                        print(f"{Fore.YELLOW}👋 感谢使用！再见！\n")
+                        break
+                        
+                except SessionTimeoutError as e:
+                    print(f"\n{Fore.RED}⏱️  对话超时: {e}")
+                    print(f"{Fore.YELLOW}💡 对话历史已保留，您可以继续对话\n")
+                    logger.error(f"对话超时: {e}")
+                    # 继续对话循环，不退出（对话历史已保存）
+                    continue
+                    
+                except KeyboardInterrupt:
+                    print(f"\n\n{Fore.YELLOW}👋 程序被中断，再见！\n")
                     break
-            else:
-                print(f"\n{Fore.RED}❌ 出错了: {result.get('error', result.get('output', 'Unknown error'))}\n")
-                
-        except KeyboardInterrupt:
-            print(f"\n\n{Fore.YELLOW}👋 程序被中断，再见！\n")
-            break
-        except Exception as e:
-            print(f"\n{Fore.RED}❌ 发生错误: {str(e)}\n")
-            import traceback
-            traceback.print_exc()
-    
-    # 🔧 程序结束时清理资源
-    print(f"\n{Fore.YELLOW}🧹 清理资源...{Style.RESET_ALL}")
-    if hasattr(agent, 'streaming_pipeline') and agent.streaming_pipeline:
-        agent.streaming_pipeline.stop(wait=True, timeout=5.0)
-    print(f"{Fore.GREEN}✅ 清理完成{Style.RESET_ALL}\n")
+                    
+                except Exception as e:
+                    print(f"\n{Fore.RED}❌ 发生错误: {str(e)}\n")
+                    logger.error(f"对话异常: {e}", exc_info=True)
+                    import traceback
+                    traceback.print_exc()
+        
+        # 上下文管理器退出时自动清理资源
+        logger.info("会话正常结束")
+        
+    except Exception as e:
+        print(f"\n{Fore.RED}❌ 会话初始化失败: {str(e)}\n")
+        logger.error(f"会话初始化失败: {e}", exc_info=True)
+        import traceback
+        traceback.print_exc()
 
 
 def test_mode():

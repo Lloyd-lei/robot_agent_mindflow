@@ -25,3 +25,7 @@ ENV/
 Thumbs.db
 
 *.mp3
+
+# 会话历史文件（运行时生成）
+sessions/
+logs/

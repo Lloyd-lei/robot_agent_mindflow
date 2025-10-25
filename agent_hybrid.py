@@ -17,6 +17,9 @@ import json
 import re
 from datetime import datetime
 
+# 导入日志系统
+from logger_config import get_logger
+
 # 导入LangChain工具
 from tools import (
     CalculatorTool,
@@ -87,6 +90,9 @@ class HybridReasoningAgent:
         self.enable_tts = enable_tts
         self.voice_mode = voice_mode
         self.enable_streaming_tts = enable_streaming_tts
+        
+        # 日志系统
+        self.logger = get_logger(self.__class__.__name__)
         
         # OpenAI客户端（兼容Ollama）
         if config.LLM_BASE_URL:
@@ -682,7 +688,8 @@ class HybridReasoningAgent:
     
     def run_with_streaming_tts(self,
                                 user_input: str,
-                                show_reasoning: bool = True) -> Dict[str, Any]:
+                                show_reasoning: bool = True,
+                                tts_wait_timeout: int = 30) -> Dict[str, Any]:
         """
         流式TTS模式：LLM流式输出 → 实时TTS播放
         
@@ -891,8 +898,18 @@ class HybridReasoningAgent:
             print(f"{'='*70}\n")
             
             import time
+            start_wait = time.time()
+            
             while True:
                 stats = self.streaming_pipeline.get_stats()
+                
+                # 🔧 日志：显示当前状态
+                self.logger.debug(
+                    f"⏳ TTS状态 - 文本队列:{stats.text_queue_size} "
+                    f"音频队列:{stats.audio_queue_size} "
+                    f"活跃任务:{stats.active_tasks} "
+                    f"播放中:{stats.is_playing}"
+                )
                 
                 # 检查所有条件（关键：包括 is_playing）
                 all_done = (
@@ -903,6 +920,19 @@ class HybridReasoningAgent:
                 )
                 
                 if all_done:
+                    self.logger.info("✅ TTS 播放完成")
+                    break
+                
+                # 🔧 超时保护
+                elapsed = time.time() - start_wait
+                if elapsed > tts_wait_timeout:
+                    self.logger.warning(
+                        f"⚠️  TTS 等待超时 ({tts_wait_timeout}秒)，强制继续\n"
+                        f"   状态: 文本队列={stats.text_queue_size}, "
+                        f"音频队列={stats.audio_queue_size}, "
+                        f"活跃任务={stats.active_tasks}, "
+                        f"播放中={stats.is_playing}"
+                    )
                     break
                 
                 time.sleep(0.5)
