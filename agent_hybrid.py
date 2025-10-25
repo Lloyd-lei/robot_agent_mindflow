@@ -211,7 +211,33 @@ class HybridReasoningAgent:
         创建系统提示词
         注意：这个提示词会被OpenAI自动缓存（Prompt Caching），节省50%成本
         """
-        return """你是一个具有强大推理能力的AI语音助手。你叫茶茶。你的回答必须为tts优化，不能出现表情包和特殊符号。
+        return """你是一个具有强大推理能力的AI语音助手。你叫茶茶。
+
+🎯 **语音交互规范（必须严格遵守）**：
+1. **回复长度**：每次回复控制在 50-100 字以内（约 10-20 秒语音）
+   - 如需详细说明，分段回复（每段不超过 100 字）
+   - 复杂信息用"首先...其次...最后..."结构
+2. **语言风格**：
+   - 使用简洁的口语化表达
+   - 直接回答，不啰嗦，不重复
+   - 避免使用书面语
+3. **禁止输出（违反将导致错误）**：
+   - ❌ 表情包、emoji、特殊符号（除了基本标点）
+   - ❌ Markdown 格式（代码块、加粗、链接等）
+   - ❌ 代码块（用"代码内容"代替）
+   - ❌ JSON 格式（用自然语言描述）
+   - ❌ 链接（用"可以搜索XX了解"代替）
+   - ❌ 任何系统标记，包括：(END_CONVERSATION)、END_CONVERSATION、ENDCONVERSATION 等
+4. **对话结束处理（重要）**：
+   - 当用户表达结束意图（如"再见"、"谢谢"、"没事了"）时
+   - **必须调用 detectConversationEnd 工具**（注意：驼峰命名，无下划线）
+   - **绝对不要**在回复中直接输出任何包含 "END" 或 "CONVERSATION" 的文本
+   - 正确示例：先礼貌回复"好的，再见"，然后调用工具
+5. **示例对比**：
+   ✅ 好："现在是下午3点15分。"
+   ❌ 差："现在的时间是下午3点15分，希望对你有帮助！😊"
+   ✅ 好："根号2约等于1.414。"
+   ❌ 差："让我来计算一下...根号2的值大约是1.414，这是一个无理数哦！"
 
 核心能力：
 1. 深度分析和理解用户问题
@@ -227,7 +253,7 @@ class HybridReasoningAgent:
 - data_comparison: 数据比较（最大最小值、排序）
 - logic_reasoning: 逻辑推理辅助
 - library_system: 图书馆管理系统（JSON查询）
-- end_conversation_detector: 对话结束检测
+- detectConversationEnd: 对话结束检测（驼峰命名，无下划线）
 - web_search: 网络搜索（模型自主决定搜索词）
 - file_operation: 文件操作（模型自主决定操作类型）
 - set_reminder: 提醒设置（模型自主提取任务和时间）
@@ -237,7 +263,7 @@ class HybridReasoningAgent:
 2. **时间查询必须调用time_tool** - 不要猜测
 3. **文本统计必须调用text_analyzer** - 不要估算
 4. **单位转换必须调用unit_converter** - 不要心算
-5. **对话结束必须调用end_conversation_detector** - 检测到"再见"等关键词时强制调用
+5. **对话结束必须调用detectConversationEnd** - 检测到"再见"等关键词时强制调用
 
 🔄 推理流程：
 第1步：分析用户问题类型和意图
@@ -256,7 +282,7 @@ class HybridReasoningAgent:
 
 用户："再见"
 → 分析：包含结束关键词或者相关结束词
-→ 决策：必须调用end_conversation_detector
+→ 决策：必须调用detectConversationEnd
 → 参数：user_message="再见"
 → 执行：检测结果
 → 回答：告别语
@@ -347,7 +373,7 @@ class HybridReasoningAgent:
         # 检测结束关键词
         contains_end_keyword = self._check_end_keywords(user_input)
         if contains_end_keyword and show_reasoning:
-            print(f"\n预处理：检测到结束关键词，将强制要求调用end_conversation_detector")
+            print(f"\n预处理：检测到结束关键词，将强制要求调用detectConversationEnd")
         
         # 构建消息（利用KV Cache）
         messages = self._build_messages(user_input, contains_end_keyword)
@@ -471,7 +497,7 @@ class HybridReasoningAgent:
             
             # 检查是否需要结束对话
             should_end = any(
-                step['tool'] == 'end_conversation_detector' and 
+                step['tool'] == 'detectConversationEnd' and 
                 'END_CONVERSATION' in step['result']
                 for step in reasoning_steps
             )
@@ -513,7 +539,7 @@ class HybridReasoningAgent:
         # 添加当前输入
         user_message = user_input
         if force_end_detection:
-            user_message += "\n\n[系统要求：检测到结束关键词，必须调用end_conversation_detector工具]"
+            user_message += "\n\n[系统要求：检测到结束关键词，必须调用detectConversationEnd工具]"
         
         messages.append({
             "role": "user",
@@ -760,8 +786,25 @@ class HybridReasoningAgent:
                     content_piece = delta.content
                     full_response += content_piece
                     
-                    # 实时送入TTS管道（智能分句会自动处理）
-                    self.streaming_pipeline.add_text_from_llm(content_piece)
+                    # 🔧 第一步：先清理 Markdown 符号（流式安全）
+                    cleaned_piece = content_piece.replace('**', '').replace('__', '')
+                    cleaned_piece = cleaned_piece.replace('*', '').replace('_', '')
+                    cleaned_piece = cleaned_piece.replace('```', '')
+                    cleaned_piece = cleaned_piece.replace('`', '')
+                    cleaned_piece = cleaned_piece.replace('#', '')
+                    
+                    # 🔧 第二步：过滤特殊标记（支持多种变体）
+                    # 检查清理后的文本，防止 (END_CONVERSATION) 的下划线被删除后变成 (ENDCONVERSATION)
+                    should_filter = any([
+                        "(END_CONVERSATION)" in cleaned_piece.upper(),
+                        "(ENDCONVERSATION)" in cleaned_piece.upper(),
+                        "END_CONVERSATION" in cleaned_piece.upper(),
+                        "ENDCONVERSATION" in cleaned_piece.upper(),
+                    ])
+                    
+                    if not should_filter and cleaned_piece.strip():
+                        # 实时送入TTS管道（智能分句会自动处理）
+                        self.streaming_pipeline.add_text_from_llm(cleaned_piece)
                     
                     if show_reasoning:
                         print(content_piece, end='', flush=True)
@@ -829,7 +872,7 @@ class HybridReasoningAgent:
                     tool_result = self._execute_tool(tool_name, tool_args)
                     
                     # 检测对话结束
-                    if tool_name == 'end_conversation_detector' and 'END_CONVERSATION' in tool_result:
+                    if tool_name == 'detectConversationEnd' and 'END_CONVERSATION' in tool_result:
                         should_end = True
                     
                     if show_reasoning:
@@ -880,8 +923,24 @@ class HybridReasoningAgent:
                         content_piece = delta.content
                         final_response += content_piece
                         
-                        # 实时送入TTS管道
-                        self.streaming_pipeline.add_text_from_llm(content_piece)
+                        # 🔧 第一步：先清理 Markdown 符号（流式安全）
+                        cleaned_piece = content_piece.replace('**', '').replace('__', '')
+                        cleaned_piece = cleaned_piece.replace('*', '').replace('_', '')
+                        cleaned_piece = cleaned_piece.replace('```', '')
+                        cleaned_piece = cleaned_piece.replace('`', '')
+                        cleaned_piece = cleaned_piece.replace('#', '')
+                        
+                        # 🔧 第二步：过滤特殊标记（支持多种变体）
+                        should_filter = any([
+                            "(END_CONVERSATION)" in cleaned_piece.upper(),
+                            "(ENDCONVERSATION)" in cleaned_piece.upper(),
+                            "END_CONVERSATION" in cleaned_piece.upper(),
+                            "ENDCONVERSATION" in cleaned_piece.upper(),
+                        ])
+                        
+                        if not should_filter and cleaned_piece.strip():
+                            # 实时送入TTS管道
+                            self.streaming_pipeline.add_text_from_llm(cleaned_piece)
                         
                         if show_reasoning:
                             print(content_piece, end='', flush=True)
@@ -960,14 +1019,18 @@ class HybridReasoningAgent:
             import traceback
             traceback.print_exc()
             
-            # 确保管道停止
+            # 🔧 关键修复：清空并重启 TTS 管道（防止串音）
             if self.streaming_pipeline:
                 self.streaming_pipeline.stop(wait=False)
+                self.streaming_pipeline.start()  # 重启以清空队列
             
             return {
                 'success': False,
+                'output': '',           # 🔧 补充缺失的 output 键
                 'error': str(e),
-                'input': user_input
+                'input': user_input,
+                'tool_calls': 0,        # 🔧 补充缺失的 tool_calls 键
+                'streaming_stats': None  # 🔧 补充缺失的 streaming_stats 键
             }
     
     def clear_cache(self):

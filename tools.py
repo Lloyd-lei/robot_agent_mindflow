@@ -439,7 +439,7 @@ class ConversationEndInput(BaseModel):
 class ConversationEndDetector(BaseTool):
     """对话结束检测工具 - 识别用户是否想要结束对话"""
     
-    name: str = "end_conversation_detector"
+    name: str = "detectConversationEnd"  # 🔧 改用驼峰命名，避免下划线被Markdown过滤
     description: str = """
     【强制调用】对话结束检测工具 - 当用户消息中包含结束关键词时，必须调用此工具！
     
@@ -450,6 +450,8 @@ class ConversationEndDetector(BaseTool):
     - 用户说"quit"、"exit"、"886"、"88"
     
     **这是强制性的** - 只要检测到这些关键词，就必须调用此工具！
+    
+    **重要**: 工具名使用驼峰命名（无下划线），以避免与文本清理和特殊标记过滤冲突。
     
     返回：
     - "END_CONVERSATION" - 检测到结束意图

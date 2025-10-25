@@ -402,11 +402,26 @@ class StreamingTTSPipeline:
             # 还没有完整句子，继续等待
             return True
         
-        # 将句子加入队列
+        # 将句子加入队列（带特殊标记过滤）
         success_count = 0
         for sentence in sentences:
-            if self._add_sentence_to_queue(sentence, timeout):
-                success_count += 1
+            # 🔧 最后一道防线：过滤包含特殊标记的句子
+            sentence_upper = sentence.upper()
+            should_filter = any([
+                "(END_CONVERSATION)" in sentence_upper,
+                "(ENDCONVERSATION)" in sentence_upper,
+                "END_CONVERSATION" in sentence_upper,
+                "ENDCONVERSATION" in sentence_upper,
+            ])
+            
+            if not should_filter:
+                if self._add_sentence_to_queue(sentence, timeout):
+                    success_count += 1
+            else:
+                # 记录被过滤的句子（调试用）
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"🚫 过滤特殊标记句子: {sentence[:50]}...")
         
         return success_count > 0
     

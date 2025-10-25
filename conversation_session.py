@@ -191,8 +191,8 @@ class ConversationSession:
                 self.save_history()
             
             return SessionResult(
-                response=result['output'],
-                tool_calls=result['tool_calls'],
+                response=result.get('output', ''),  # 🔧 使用 get() 防止 KeyError
+                tool_calls=result.get('tool_calls', 0),  # 🔧 使用 get() 防止 KeyError
                 duration=duration,
                 should_end=result.get('should_end', False),
                 streaming_stats=result.get('streaming_stats')
@@ -200,6 +200,13 @@ class ConversationSession:
             
         except SessionTimeoutError as e:
             logger.error(f"⏱️  对话超时: {e}")
+            
+            # 🔧 关键修复：强制清空 TTS 管道（防止串音）
+            if self._agent and self._agent.streaming_pipeline:
+                logger.warning("🧹 清空残留 TTS 缓冲区...")
+                self._agent.streaming_pipeline.stop(wait=False)
+                self._agent.streaming_pipeline.start()  # 重启管道清空队列
+            
             # 超时时也保存历史（保留已完成的对话）
             if self.enable_cache and self._agent:
                 logger.warning("⚠️  超时发生，但对话历史已保留（支持恢复）")
@@ -207,6 +214,13 @@ class ConversationSession:
             raise
         except Exception as e:
             logger.error(f"❌ 对话失败: {e}")
+            
+            # 🔧 关键修复：异常时也清空 TTS 管道（防止串音）
+            if self._agent and self._agent.streaming_pipeline:
+                logger.warning("🧹 清空残留 TTS 缓冲区...")
+                self._agent.streaming_pipeline.stop(wait=False)
+                self._agent.streaming_pipeline.start()  # 重启管道清空队列
+            
             # 异常时也尝试保存（最大程度保留历史）
             if self.enable_cache and self._agent:
                 try:
@@ -277,6 +291,40 @@ class ConversationSession:
             
         except Exception as e:
             logger.error(f"❌ 清理资源失败: {e}")
+    
+    def get_detailed_state(self) -> Dict[str, Any]:
+        """
+        获取完整系统状态（用于诊断）
+        
+        Returns:
+            包含会话、Agent 和 TTS 管道状态的字典
+        """
+        state = {
+            'session_id': self._session_id,
+            'session_status': 'started' if self._is_started else 'stopped',
+            'is_agent_initialized': self._agent is not None,
+        }
+        
+        if self._agent:
+            # Agent 基本状态
+            state['agent'] = {
+                'conversation_turns': len(self._agent.conversation_history) // 2,
+                'cache_enabled': self.enable_cache,
+            }
+            
+            # TTS 管道状态
+            if self._agent.streaming_pipeline:
+                pipeline_stats = self._agent.streaming_pipeline.get_stats()
+                state['agent']['tts_pipeline'] = {
+                    'status': 'running' if pipeline_stats.threads_alive > 0 else 'stopped',
+                    'is_playing': pipeline_stats.is_playing,
+                    'text_queue_size': pipeline_stats.text_queue_size,
+                    'audio_queue_size': pipeline_stats.audio_queue_size,
+                    'active_tasks': pipeline_stats.active_tasks,
+                    'threads_alive': pipeline_stats.threads_alive,
+                }
+        
+        return state
     
     def _cleanup_on_exit(self):
         """

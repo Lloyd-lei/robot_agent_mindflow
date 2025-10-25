@@ -116,7 +116,8 @@ def main(streaming=True):
             enable_cache=True,
             show_reasoning=True,
             timeout=60,           # 单轮对话超时60秒
-            tts_wait_timeout=60   # TTS等待超时30秒
+            tts_wait_timeout=60
+               # TTS等待超时30秒
         ) as session:
             
             init_time = time.time() - start_time
