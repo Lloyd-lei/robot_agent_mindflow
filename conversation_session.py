@@ -150,7 +150,7 @@ class ConversationSession:
             elif self.tts_provider.lower() == "openai":
                 tts_kwargs["api_key"] = config.OPENAI_API_KEY
                 tts_kwargs["model"] = "tts-1"  # 或 "tts-1-hd" 更高质量但更贵
-                # OpenAI TTS 不支持 rate/volume 参数
+                tts_kwargs["speed"] = 1.1  # 🔧 语速 1.1 倍（范围 0.25-4.0）
             
             # Azure TTS 特定参数
             elif self.tts_provider.lower() == "azure":

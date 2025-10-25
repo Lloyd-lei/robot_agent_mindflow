@@ -217,25 +217,179 @@ class HybridReasoningAgent:
             FAQTool(),
         ]
     
+    def _convert_json_to_prompt(self, data: dict) -> str:
+        """
+        将 JSON 格式的 prompt 转换为文本格式
+        
+        Args:
+            data: JSON prompt 数据
+            
+        Returns:
+            str: 转换后的文本 prompt
+        """
+        lines = []
+        
+        # === 身份定义 ===
+        if 'identity' in data:
+            identity = data['identity']
+            lines.append(f"你是一个{identity.get('role', 'AI助手')}。你叫{identity.get('name', '助手')}。")
+            if 'personality' in identity:
+                lines.append(f"特点：{identity['personality']}")
+            lines.append("")
+        
+        # === 语音交互规范 ===
+        if 'voice_interaction_rules' in data:
+            rules = data['voice_interaction_rules']
+            lines.append("🎯 **语音交互规范（必须严格遵守）**：")
+            lines.append("")
+            
+            # 回复长度
+            if 'response_length' in rules:
+                rl = rules['response_length']
+                lines.append(f"1. **回复长度**：每次回复控制在 {rl.get('max_chars', 100)} 字以内")
+                if 'strategy' in rl:
+                    lines.append(f"   - {rl['strategy']}")
+                if 'complex_info_structure' in rl:
+                    lines.append(f"   - 复杂信息用 {rl['complex_info_structure']} 结构")
+                lines.append("")
+            
+            # 语言风格
+            if 'language_style' in rules:
+                ls = rules['language_style']
+                lines.append("2. **语言风格**：")
+                lines.append(f"   - {ls.get('tone', '简洁、口语化')}")
+                if 'principle' in ls:
+                    lines.append(f"   - {ls['principle']}")
+                lines.append("")
+            
+            # 禁止输出
+            if 'forbidden_outputs' in rules:
+                fo = rules['forbidden_outputs']
+                lines.append("3. **禁止输出（违反将导致错误）**：")
+                for item in fo.get('strict_ban', []):
+                    lines.append(f"   - ❌ {item}")
+                lines.append("")
+            
+            # 对话结束协议
+            if 'conversation_end_protocol' in rules:
+                cep = rules['conversation_end_protocol']
+                lines.append("4. **对话结束处理（重要）**：")
+                lines.append(f"   - 触发词：{', '.join(cep.get('trigger_keywords', []))}")
+                lines.append(f"   - 操作：{cep.get('action', '调用工具')}")
+                lines.append(f"   - 禁止：{cep.get('forbidden', '')}")
+                lines.append("")
+            
+            # 质量示例
+            if 'quality_examples' in rules:
+                qe = rules['quality_examples']
+                lines.append("5. **示例对比**：")
+                for good in qe.get('good', []):
+                    lines.append(f'   ✅ 好："{good}"')
+                for bad in qe.get('bad', []):
+                    lines.append(f'   ❌ 差："{bad}"')
+                lines.append("")
+        
+        # === 核心能力 ===
+        if 'core_capabilities' in data:
+            lines.append("核心能力：")
+            for i, cap in enumerate(data['core_capabilities'], 1):
+                if isinstance(cap, dict):
+                    status = f" ({cap['status']})" if 'status' in cap else ""
+                    lines.append(f"{i}. {cap.get('name', '')}{status}")
+                else:
+                    lines.append(f"{i}. {cap}")
+            lines.append("")
+        
+        # === 可用工具 ===
+        if 'available_tools' in data:
+            lines.append("可用工具：")
+            for tool in data['available_tools']:
+                if isinstance(tool, dict):
+                    name = tool.get('name', '')
+                    desc = tool.get('description', '')
+                    lines.append(f"- {name}: {desc}")
+                else:
+                    lines.append(f"- {tool}")
+            lines.append("")
+        
+        # === 强制规则 ===
+        if 'mandatory_rules' in data:
+            mr = data['mandatory_rules']
+            lines.append("⚠️ 重要规则（必须严格遵守）：")
+            for i, rule in enumerate(mr.get('must_use_tools', []), 1):
+                if isinstance(rule, dict):
+                    lines.append(f"{i}. **{rule.get('rule', '')}** - {rule.get('reason', '')}")
+                else:
+                    lines.append(f"{i}. {rule}")
+            lines.append("")
+        
+        # === 推理流程 ===
+        if 'reasoning_process' in data:
+            rp = data['reasoning_process']
+            lines.append("🔄 推理流程：")
+            for step in rp.get('steps', []):
+                if isinstance(step, dict):
+                    lines.append(f"第{step.get('step', '')}步：{step.get('action', '')}")
+            lines.append("")
+        
+        # === 示例 ===
+        if 'examples' in data:
+            lines.append("💡 示例：")
+            examples = data['examples']
+            for key, example in examples.items():
+                if isinstance(example, dict) and 'user_input' in example:
+                    lines.append(f'\n用户："{example["user_input"]}"')
+                    if 'step_1_analysis' in example:
+                        lines.append(f"→ 分析：{example['step_1_analysis']}")
+                    if 'step_2_tool_selection' in example:
+                        lines.append(f"→ 决策：{example['step_2_tool_selection']}")
+                    if 'step_5_response' in example:
+                        lines.append(f"→ 回答：{example['step_5_response']}")
+            lines.append("")
+        
+        # === 最终提醒 ===
+        if 'system_instructions' in data:
+            si = data['system_instructions']
+            if 'final_reminder' in si:
+                lines.append(si['final_reminder'])
+        
+        return "\n".join(lines)
+    
     def _create_system_prompt(self) -> str:
         """
         从外部文件加载系统提示词（方便修改和维护）
+        优先级：JSON > TXT > 内置默认
         注意：这个提示词会被OpenAI自动缓存（Prompt Caching），节省50%成本
         """
         from pathlib import Path
+        import json
         
-        # 从 prompts/system_prompt.txt 读取
-        prompt_path = Path(__file__).parent / "prompts" / "system_prompt.txt"
+        prompts_dir = Path(__file__).parent / "prompts"
         
-        try:
-            if prompt_path.exists():
-                with open(prompt_path, 'r', encoding='utf-8') as f:
+        # 1. 优先尝试加载 JSON 格式（推荐）
+        json_path = prompts_dir / "system_prompt.json"
+        if json_path.exists():
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    prompt_data = json.load(f)
+                    prompt = self._convert_json_to_prompt(prompt_data)
+                    if prompt:
+                        self.logger.info(f"✅ 已从 JSON 加载 System Prompt: {json_path}")
+                        return prompt
+            except Exception as e:
+                self.logger.warning(f"⚠️  加载 JSON prompt 失败: {e}，尝试 TXT")
+        
+        # 2. 回退到 TXT 格式
+        txt_path = prompts_dir / "system_prompt.txt"
+        if txt_path.exists():
+            try:
+                with open(txt_path, 'r', encoding='utf-8') as f:
                     prompt = f.read().strip()
                     if prompt:
-                        self.logger.info(f"✅ 已从文件加载 System Prompt: {prompt_path}")
+                        self.logger.info(f"✅ 已从 TXT 加载 System Prompt: {txt_path}")
                         return prompt
-        except Exception as e:
-            self.logger.warning(f"⚠️  加载外部 prompt 失败: {e}，使用默认 prompt")
+            except Exception as e:
+                self.logger.warning(f"⚠️  加载 TXT prompt 失败: {e}，使用内置默认")
         
         # 回退到默认 prompt（备份）
         self.logger.info("使用内置默认 System Prompt")
@@ -919,6 +1073,10 @@ class HybridReasoningAgent:
             should_end = False  # 检测对话结束
             
             if tool_calls_buffer:
+                # 🎵 开始播放工具调用音效
+                if self.voice_mode:
+                    self.voice_feedback.start('tool_thinking')
+                
                 if show_reasoning:
                     print(f"\n{'='*70}")
                     print("🛠️  工具调用")
@@ -956,6 +1114,10 @@ class HybridReasoningAgent:
                         "tool_call_id": tool_call['id'],
                         "content": str(tool_result)
                     })
+                
+                # 🎵 停止工具调用音效
+                if self.voice_mode:
+                    self.voice_feedback.stop()
                 
                 # === 阶段4：获取最终回复（带工具结果）===
                 print(f"{'='*70}")

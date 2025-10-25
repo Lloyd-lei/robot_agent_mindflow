@@ -111,7 +111,7 @@ def main(streaming=True):
     try:
         with ConversationSession(
             tts_provider="openai",           # 🔧 修改：使用 OpenAI TTS
-            tts_voice="nova",                # 🔧 修改：女声，活泼友好（可选：shimmer/alloy/echo/fable/onyx）
+            tts_voice="shimmer",             # 🔧 修改：shimmer - 温柔女声
             enable_cache=True,
             show_reasoning=True,
             timeout=60,           # 单轮对话超时60秒
@@ -120,6 +120,11 @@ def main(streaming=True):
             
             init_time = time.time() - start_time
             print(f"{Fore.GREEN}✅ 会话初始化完成！耗时: {init_time:.2f}秒")
+            
+            # 🎵 启用音效系统
+            from voice_feedback import VoiceWaitingFeedback
+            session._agent.voice_mode = True
+            session._agent.voice_feedback = VoiceWaitingFeedback(mode='audio')
             
             # 显示实际使用的 TTS 配置
             print(f"{Fore.CYAN}📢 TTS 配置: {Fore.WHITE}{session.tts_provider.upper()} - {session.tts_voice}")

@@ -240,10 +240,11 @@ class AzureTTS(BaseTTS):
 class OpenAITTS(BaseTTS):
     """OpenAI TTS 实现 - 官方付费服务（预留接口）"""
     
-    def __init__(self, api_key: str, model: str = "tts-1", voice: str = "alloy"):
+    def __init__(self, api_key: str, model: str = "tts-1", voice: str = "alloy", speed: float = 1.1):
         self.api_key = api_key
         self.model = model
         self.voice = voice
+        self.speed = speed  # 语速：0.25 - 4.0，默认 1.0
         
         try:
             from openai import OpenAI
@@ -259,7 +260,8 @@ class OpenAITTS(BaseTTS):
         response = self.client.audio.speech.create(
             model=self.model,
             voice=self.voice,
-            input=text
+            input=text,
+            speed=self.speed  # 🔧 添加语速控制
         )
         return response.content
     

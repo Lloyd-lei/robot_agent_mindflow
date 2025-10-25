@@ -283,12 +283,12 @@ class StreamingTTSPipeline:
     
     def __init__(self,
                  tts_engine,
-                 text_queue_size: int = 3,
-                 audio_queue_size: int = 2,
-                 max_tasks: int = 10,
+                 text_queue_size: int = 10,
+                 audio_queue_size: int = 10,
+                 max_tasks: int = 20,
                  generation_timeout: float = 10.0,
                  playback_timeout: float = 30.0,
-                 min_chunk_length: int = 10,
+                 min_chunk_length: int = 1,
                  max_chunk_length: int = 100,
                  verbose: bool = True):
         """
@@ -675,7 +675,7 @@ class StreamingTTSPipeline:
                     pygame.mixer.music.stop()
                     raise TimeoutError("播放超时")
                 
-                time.sleep(0.01)
+                time.sleep(0.001)  # 🔧 减少检查间隔，从 10ms 降低到 1ms，减少 chunk 之间停顿
             
             return True
             
