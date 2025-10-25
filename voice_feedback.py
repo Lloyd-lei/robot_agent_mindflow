@@ -8,6 +8,9 @@ import time
 import random
 import os
 from pathlib import Path
+from logger_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class VoiceWaitingFeedback:
@@ -71,6 +74,7 @@ class VoiceWaitingFeedback:
             return
         
         self.is_playing = True
+        logger.debug(f"🎵 开始播放音效: {context}")
         
         if self.mode == 'audio' and context in self.sounds:
             self.thread = threading.Thread(
@@ -79,23 +83,27 @@ class VoiceWaitingFeedback:
                 daemon=True
             )
             self.thread.start()
+            logger.info(f"🎵 音效线程已启动: {context}")
         elif self.mode == 'text':
             self._show_text_prompt(context)
     
     def stop(self):
         """停止播放"""
         self.is_playing = False
+        logger.debug("🛑 停止音效播放")
         
         # 停止音频播放
         if self._pygame_initialized:
             try:
                 import pygame
                 pygame.mixer.music.stop()
+                logger.debug("🛑 pygame音频已停止")
             except:
                 pass
         
         if self.thread:
             self.thread.join(timeout=0.5)
+            logger.debug("🛑 音效线程已结束")
     
     def _show_text_prompt(self, context):
         """显示文本提示（降级方案）"""
@@ -124,6 +132,7 @@ class VoiceWaitingFeedback:
             # 加载并播放音效
             pygame.mixer.music.load(str(sound_file))
             pygame.mixer.music.play()
+            logger.info(f"🔊 音效播放中: {sound_file.name}")
             
             # 等待播放完成或停止信号
             while pygame.mixer.music.get_busy() and self.is_playing:
@@ -132,6 +141,9 @@ class VoiceWaitingFeedback:
             # 如果提前停止，淡出
             if self.is_playing and pygame.mixer.music.get_busy():
                 pygame.mixer.music.fadeout(500)  # 0.5秒淡出
+                logger.debug("🎵 音效淡出")
+            else:
+                logger.info("✅ 音效播放完成")
         
         except ImportError:
             print("⚠️  pygame 未安装，无法播放音效")

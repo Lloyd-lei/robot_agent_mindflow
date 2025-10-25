@@ -44,7 +44,7 @@ from tools import (
 import config
 
 # 导入TTS优化和语音反馈
-from tts_optimizer import TTSOptimizer # ttsoptimizer没有实现streaming pipline，所以好像没用上
+#from tts_optimizer import TTSOptimizer # ttsoptimizer没有实现streaming pipline，所以好像没用上
 from voice_feedback import VoiceWaitingFeedback # response空窗期播放声音，防止用户等待焦虑，但还没找到合适的音效
 from tts_interface import TTSFactory, TTSProvider # ttsinterface是tts的范型接口，可以轻松切换tts服务，现在是edge tts，可以换openai或者自己的tts
 from streaming_tts_pipeline import StreamingTTSPipeline, create_streaming_pipeline # streaming_tts_pipeline是流式tts的实现
@@ -177,9 +177,9 @@ class HybridReasoningAgent:
             )
             print(f"流式TTS管道已创建")
         
-        # 语音反馈
+        # 语音反馈（工具调用时播放音效）
         if self.voice_mode:
-            self.voice_feedback = VoiceWaitingFeedback(mode='text')
+            self.voice_feedback = VoiceWaitingFeedback(mode='audio')  # ✅ 修复：使用音频模式
         
         print(f"   混合架构Agent初始化成功")
         print(f"   引擎: OpenAI原生API ({self.model})")

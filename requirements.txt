@@ -21,3 +21,9 @@ edge-tts>=7.0.0
 # 音频播放
 pygame==2.5.2
 
+# 语音交互（ASR + VAD + 录音）
+numpy>=1.24.0
+pyaudio>=0.2.13
+
+# Ollama 本地模型
+langchain-ollama

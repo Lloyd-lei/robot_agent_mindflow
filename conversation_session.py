@@ -78,7 +78,9 @@ class ConversationSession:
         enable_cache: bool = True,
         show_reasoning: bool = True,
         timeout: int = 60,
-        tts_wait_timeout: int = 30
+        tts_wait_timeout: int = 30,
+        voice_mode: bool = False,  # ✅ 新增：启用语音模式（工具调用音效）
+        temperature: float = 0.0   # ✅ 新增：LLM 温度参数
     ):
         """
         初始化会话（不分配资源）
@@ -92,6 +94,8 @@ class ConversationSession:
         - show_reasoning: 是否显示推理过程
         - timeout: 单轮对话超时（秒）
         - tts_wait_timeout: TTS 播放等待超时（秒）
+        - voice_mode: 是否启用语音模式（工具调用时播放音效）
+        - temperature: LLM 温度参数（0=确定性，1=随机性）
         """
         # 配置参数
         self.llm_provider = llm_provider
@@ -102,6 +106,8 @@ class ConversationSession:
         self.show_reasoning = show_reasoning
         self.timeout = timeout
         self.tts_wait_timeout = tts_wait_timeout
+        self.voice_mode = voice_mode
+        self.temperature = temperature
         
         # 内部状态
         self._agent: Optional[HybridReasoningAgent] = None
@@ -171,7 +177,8 @@ class ConversationSession:
                 model=self.llm_model,
                 enable_cache=self.enable_cache,
                 enable_streaming_tts=True,
-                voice_mode=False,  # 由会话管理器控制
+                voice_mode=self.voice_mode,  # ✅ 由会话管理器传递
+                temperature=self.temperature,  # ✅ 传递温度参数
                 tts_engine=tts_engine  # 🔧 关键修复：传入TTS引擎！
             )
             
