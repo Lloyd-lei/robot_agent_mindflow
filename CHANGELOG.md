@@ -1,5 +1,69 @@
 # 更新日志
 
+## [v1.2.0] - 2025-10-25
+
+### 🔧 重大修复
+
+#### 1. **OpenAI TTS 集成问题**
+- 修复 TTS 初始化顺序错误导致 StreamingTTSPipeline 使用错误引擎的问题
+- 根因：先创建 Agent 再设置 TTS，导致 Pipeline 已保存 Edge TTS 引用
+- 解决方案：先创建 TTS 引擎，再传入 Agent 构造函数
+- 验证：添加 `test/test_final_tts_verification.py` 确保引用一致性
+- 详细说明：`docs/OpenAI_TTS_集成修复.md`
+
+### ✨ 新功能
+
+#### 1. **外部化 System Prompt**
+- 创建 `prompts/system_prompt.txt` - 提示词独立管理
+- 创建 `prompts/README.md` - 提示词修改指南
+- `agent_hybrid.py` 自动从文件加载提示词
+- 方便用户自定义 Agent 行为和风格
+
+#### 2. **OpenAI LLM + TTS 完整支持**
+- LLM：OpenAI gpt-4o-mini（便宜、快速）
+- TTS：OpenAI TTS - Nova 语音（高质量、多语言）
+- 配置：通过 `.env` 文件统一管理
+- 成本：$15/1M 字符（TTS），约 100 字回复 = $0.0015
+
+### 🧪 测试增强
+
+#### 新增测试脚本
+- `test/test_config_quick.py` - 快速配置验证
+- `test/test_final_tts_verification.py` - TTS 集成验证
+- `test/test_openai_tts.py` - OpenAI TTS 功能测试
+- `test/test_prompt_loading.py` - 外部提示词加载测试
+- `test/test_multilingual_voice.py` - 多语言语音测试
+
+### 📦 项目清理
+
+#### 目录结构优化
+- 移动所有测试文件到 `test/` 目录
+- 清理 `sessions/` 目录（保留最近 5 个）
+- 清理 `logs/` 目录（保留今天的日志）
+- 删除根目录重复文件
+
+#### 文档更新
+- `docs/OpenAI_TTS_集成修复.md` - 详细修复说明
+- `docs/多语言TTS使用指南.md` - 多语言使用文档
+- 更新 `README.md` - 外部 Prompt 配置说明
+
+### 🐛 Bug 修复
+- 移除 `agent_hybrid.py` 中误导性的 "使用 Edge TTS" 打印
+- 改为警告日志：只在 fallback 时提示
+- 修复 `tools.py` 中 `VoiceSelector` 的类型注解错误（`any` → `Any`）
+
+### 🎯 配置优化
+- `.env` 示例更新：支持 OpenAI/Ollama 切换
+- `config.py` 统一管理 LLM 和 TTS 配置
+- `main.py` 动态显示实际使用的 TTS 提供商
+
+### 📊 Git 记录
+- 提交：34ddf7e
+- 分支：wrapper-updated
+- 推送：✅ 已同步到远程
+
+---
+
 ## [v1.1.0] - 2024-10-24
 
 ### ✨ 新功能
