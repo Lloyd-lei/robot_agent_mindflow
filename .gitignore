@@ -29,3 +29,4 @@ Thumbs.db
 # 会话历史文件（运行时生成）
 sessions/
 logs/
+temp_audio/
