@@ -37,6 +37,31 @@
 | **真实音频播放**      | pygame 实时播放，防重叠机制                | ✅   |
 | **推理过程可视化**    | 完整展示工具选择和参数决策                 | ✅   |
 | **范型 TTS 接口**     | 轻松切换不同 TTS 服务                      | ✅   |
+| **外部 Prompt 配置**  | 支持从文件加载 System Prompt，方便修改     | ✅   |
+
+### 🛠️ System Prompt 外部配置
+
+**现在你可以直接编辑 prompt 文件，无需修改代码！**
+
+```bash
+# 编辑 System Prompt（修改后重启程序即可生效）
+vim prompts/system_prompt.txt
+
+# 查看 Prompt 配置说明
+cat prompts/README.md
+
+# 测试 Prompt 加载
+python test/test_prompt_loading.py
+```
+
+**特点：**
+
+- ✅ **无需修改代码**：直接编辑文本文件
+- ✅ **热重载**：修改后重启程序即生效（无需重新编译）
+- ✅ **版本控制**：用 Git 管理 prompt 历史
+- ✅ **自动备份**：文件缺失时自动使用内置 prompt
+
+详细说明请参考 [`prompts/README.md`](prompts/README.md)
 
 ## 📁 项目结构
 
@@ -48,11 +73,23 @@ robot_agent_mindflow/
 │   ├── tts_interface.py         # TTS 范型接口（Edge/Azure/OpenAI）
 │   ├── tts_optimizer.py         # TTS 文本优化 + 音频播放管理
 │   ├── voice_feedback.py        # 语音反馈（思考提示）
-│   └── config.py                # 配置管理
+│   ├── config.py                # 配置管理
+│   ├── logger_config.py         # 日志配置
+│   ├── conversation_session.py  # 会话管理器
+│   └── streaming_tts_pipeline.py # 流式 TTS 管道
+│
+├── 📝 Prompt 配置 (新增)
+│   ├── system_prompt.txt        # System Prompt 主文件 ⭐
+│   └── README.md                # Prompt 配置说明
 │
 ├── 🎬 演示程序
-│   ├── main.py           # 主交互演示（推荐）✨
+│   ├── main.py                  # 主交互演示（推荐）✨
 │   └── test_tts_integration.py  # TTS 功能测试
+│
+├── 🧪 测试文件
+│   ├── test_prompt_loading.py   # Prompt 加载测试
+│   ├── test_multilingual_voice.py # 多语言语音测试
+│   └── ...                      # 其他测试文件
 │
 ├── 📚 文档
 │   ├── README.md                # 本文件

@@ -33,6 +33,7 @@ from tools import (
     WebSearchTool,
     FileOperationTool,
     ReminderTool,
+    # VoiceSelector,  # 🔧 已禁用：OpenAI TTS 原生支持多语言，无需切换
     VisitorRegistrationTool,
     MeetingRoomTool,
     EmployeeDirectoryTool,
@@ -111,6 +112,13 @@ class HybridReasoningAgent:
         # 工具名称映射
         self.tool_map = {tool.name: tool for tool in self.langchain_tools}
         
+        # 🔧 为 VoiceSelector 注入 Agent 实例（已禁用：OpenAI TTS 原生支持多语言）
+        # for tool in self.langchain_tools:
+        #     if tool.name == "voiceSelector":
+        #         tool.agent_instance = self
+        #         self.logger.info("✅ VoiceSelector 已注入 Agent 实例")
+        #         break
+        
         # 对话历史（KV Cache会自动缓存）
         self.conversation_history = []
         
@@ -120,12 +128,13 @@ class HybridReasoningAgent:
         # TTS引擎（共享）
         self.tts_engine = tts_engine
         if (self.enable_tts or self.enable_streaming_tts) and tts_engine is None:
-            print(f"🎵 使用 Edge TTS（晓晓语音，语速 +15%）...")
+            # 🔧 Fallback：如果没有传入TTS引擎，使用Edge TTS（免费）
+            self.logger.warning("⚠️  未传入 TTS 引擎，使用 Edge TTS 作为 fallback")
             self.tts_engine = TTSFactory.create_tts(
                 provider=TTSProvider.EDGE,
-                voice="zh-CN-XiaoxiaoNeural",  # 晓晓 - 温柔女声 # 还有别的声音，可以换
-                rate="+15%",    # 🔧 语速加快 15%（更自然）
-                volume="+10%"   # 🔧 音量稍大
+                voice="zh-CN-XiaoxiaoNeural",  # 晓晓 - 温柔女声
+                rate="+15%",    # 语速加快 15%
+                volume="+10%"   # 音量稍大
             )
         
         # TTS优化器（传统批量模式）
@@ -197,6 +206,8 @@ class HybridReasoningAgent:
             WebSearchTool(),
             FileOperationTool(),
             ReminderTool(),
+            # 多语言支持（新增）⭐ - 已禁用：OpenAI TTS 原生支持多语言
+            # VoiceSelector(),
             # 前台接待工具
             VisitorRegistrationTool(),
             MeetingRoomTool(),
@@ -208,9 +219,26 @@ class HybridReasoningAgent:
     
     def _create_system_prompt(self) -> str:
         """
-        创建系统提示词
+        从外部文件加载系统提示词（方便修改和维护）
         注意：这个提示词会被OpenAI自动缓存（Prompt Caching），节省50%成本
         """
+        from pathlib import Path
+        
+        # 从 prompts/system_prompt.txt 读取
+        prompt_path = Path(__file__).parent / "prompts" / "system_prompt.txt"
+        
+        try:
+            if prompt_path.exists():
+                with open(prompt_path, 'r', encoding='utf-8') as f:
+                    prompt = f.read().strip()
+                    if prompt:
+                        self.logger.info(f"✅ 已从文件加载 System Prompt: {prompt_path}")
+                        return prompt
+        except Exception as e:
+            self.logger.warning(f"⚠️  加载外部 prompt 失败: {e}，使用默认 prompt")
+        
+        # 回退到默认 prompt（备份）
+        self.logger.info("使用内置默认 System Prompt")
         return """你是一个具有强大推理能力的AI语音助手。你叫茶茶。
 
 🎯 **语音交互规范（必须严格遵守）**：
@@ -244,6 +272,48 @@ class HybridReasoningAgent:
 2. 必须使用工具解决问题（展示推理能力）
 3. 自主决定工具参数（展示决策能力）
 4. 基于结果进行综合推理
+5. **自动适配多语言语音**（新增核心功能）⭐
+
+🌍 **多语言语音自动切换（重要新功能）**：
+你现在支持 6 种语言的智能语音切换！当用户切换语言时，你必须主动调用 voiceSelector 工具切换语音。
+
+**何时必须切换语音**：
+1. **用户用非中文提问时**：
+   - 英文："Hello" / "How are you?" → 立即切换到英文语音（english）
+   - 日文："こんにちは" / "ありがとう" → 立即切换到日文语音（japanese）
+   - 法语："Bonjour" / "Merci" → 立即切换到法语语音（french）
+   - 西班牙语："Hola" / "Gracias" → 立即切换到西班牙语（spanish）
+   - 越南语："Xin chào" → 立即切换到越南语（vietnamese）
+
+2. **用户切换回中文时**：
+   - 检测到中文对话 → 切换回中文语音（chinese）
+
+3. **回答内容涉及特定语言时**：
+   - 讲日本文化/故事 → 使用日文语音
+   - 教英语/讲英美内容 → 使用英文语音
+   - 法国文化/法语教学 → 使用法语语音
+
+**切换规则**：
+- ✅ 语音会一直保持，直到你下次调用 voiceSelector
+- ✅ 不要每句话都切换，只在语言环境改变时切换
+- ✅ 如果用户用混合语言，使用主要语言的语音
+- ✅ 默认语音是中文（晓晓女声）
+
+**示例场景**：
+```
+用户: "Hello, what's your name?"
+你的操作：
+  步骤1：调用 voiceSelector(language="english", reason="用户用英文提问")
+  步骤2：用英文回答 "My name is ChaCha. How can I help you?"
+  → 之后保持英文语音，直到用户切换回中文
+
+用户: "你好，现在几点了？"
+你的操作：
+  步骤1：调用 voiceSelector(language="chinese", reason="用户切换回中文")
+  步骤2：调用 time_tool 获取时间
+  步骤3：用中文回答 "现在是下午3点15分。"
+  → 之后保持中文语音
+```
 
 可用工具：
 - calculator: 数学计算（sqrt、三角函数、复杂运算）
@@ -254,6 +324,7 @@ class HybridReasoningAgent:
 - logic_reasoning: 逻辑推理辅助
 - library_system: 图书馆管理系统（JSON查询）
 - detectConversationEnd: 对话结束检测（驼峰命名，无下划线）
+- voiceSelector: **多语言语音切换**（新增核心工具）⭐
 - web_search: 网络搜索（模型自主决定搜索词）
 - file_operation: 文件操作（模型自主决定操作类型）
 - set_reminder: 提醒设置（模型自主提取任务和时间）
@@ -264,6 +335,7 @@ class HybridReasoningAgent:
 3. **文本统计必须调用text_analyzer** - 不要估算
 4. **单位转换必须调用unit_converter** - 不要心算
 5. **对话结束必须调用detectConversationEnd** - 检测到"再见"等关键词时强制调用
+6. **语言切换必须调用voiceSelector** - 检测到非中文提问时立即切换语音 ⭐
 
 🔄 推理流程：
 第1步：分析用户问题类型和意图

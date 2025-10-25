@@ -1,7 +1,4 @@
-"""
-混合架构交互式Demo
-展示OpenAI原生API + LangChain工具 + KV Cache的威力
-"""
+
 from conversation_session import ConversationSession, SessionNotStartedError, SessionTimeoutError
 from agent_hybrid import HybridReasoningAgent
 from logger_config import setup_logger
@@ -33,19 +30,21 @@ def print_header(streaming_mode=False):
     print("  📊 OpenAI原生API - 100%可靠的工具调用")
     print("  🛠️  LangChain工具池 - 17个强大工具")
     print("  ⚡ KV Cache优化 - 多轮对话速度提升3-5倍")
-    print("  🗣️  Edge TTS - 真实语音播放（晓晓语音）")
+    print("  🗣️  OpenAI TTS - Nova 语音（支持 50+ 种语言）⭐")
     
     if streaming_mode:
         print("\n" + Fore.YELLOW + "🚀 流式TTS功能（推荐）：")
         print("  • ⚡ 超低延迟 - LLM生成的同时TTS播放")
         print("  • 🎯 智能分句 - 自动识别句子边界")
         print("  • 🛡️  背压控制 - 自动防止资源爆炸")
+        print("  • 🌍 多语言原生 - 无需切换语音")
         print("  • 💡 推理可视化 - 实时展示思考过程")
     else:
         print("\n" + Fore.YELLOW + "🎯 语音功能：")
-        print("  • 🔊 真实语音播放 - Edge TTS 免费高质量")
+        print("  • 🔊 OpenAI TTS - 极高质量语音合成")
         print("  • 🎵 智能分句 - 自然流畅的语音节奏")
         print("  • 🛡️  防重叠播放 - 稳定可靠的音频管理")
+        print("  • 🌍 多语言原生 - 支持 50+ 种语言")
         print("  • 💡 推理可视化 - 完整展示思考过程")
     
     print("\n" + Fore.RED + "🔊 请确保扬声器已开启，音量适中！")
@@ -111,17 +110,23 @@ def main(streaming=True):
     
     try:
         with ConversationSession(
-            tts_provider="edge",
-            tts_voice="zh-CN-XiaoxiaoNeural",
+            tts_provider="openai",           # 🔧 修改：使用 OpenAI TTS
+            tts_voice="nova",                # 🔧 修改：女声，活泼友好（可选：shimmer/alloy/echo/fable/onyx）
             enable_cache=True,
             show_reasoning=True,
             timeout=60,           # 单轮对话超时60秒
-            tts_wait_timeout=60
-               # TTS等待超时30秒
+            tts_wait_timeout=60   # TTS等待超时60秒
         ) as session:
             
             init_time = time.time() - start_time
-            print(f"{Fore.GREEN}✅ 会话初始化完成！耗时: {init_time:.2f}秒\n")
+            print(f"{Fore.GREEN}✅ 会话初始化完成！耗时: {init_time:.2f}秒")
+            
+            # 显示实际使用的 TTS 配置
+            print(f"{Fore.CYAN}📢 TTS 配置: {Fore.WHITE}{session.tts_provider.upper()} - {session.tts_voice}")
+            if session.tts_provider.lower() == "openai":
+                print(f"{Fore.YELLOW}💡 OpenAI TTS 支持 50+ 种语言，无需切换语音\n")
+            else:
+                print()
             
             # 尝试恢复之前的对话历史
             if session.load_history():

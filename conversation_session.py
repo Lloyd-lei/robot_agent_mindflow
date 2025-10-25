@@ -133,22 +133,46 @@ class ConversationSession:
         logger.info(f"🚀 启动会话: {self._session_id}")
         
         try:
-            # === 初始化 Agent ===
+            # === 先初始化 TTS（必须在Agent之前！）===
+            logger.debug(f"初始化 TTS ({self.tts_provider})...")
+            
+            # 根据不同的 TTS 提供商，传递不同的参数
+            tts_kwargs = {
+                "voice": self.tts_voice,
+            }
+            
+            # Edge TTS 特定参数
+            if self.tts_provider.lower() == "edge":
+                tts_kwargs["rate"] = "+15%"
+                tts_kwargs["volume"] = "+10%"
+            
+            # OpenAI TTS 特定参数
+            elif self.tts_provider.lower() == "openai":
+                tts_kwargs["api_key"] = config.OPENAI_API_KEY
+                tts_kwargs["model"] = "tts-1"  # 或 "tts-1-hd" 更高质量但更贵
+                # OpenAI TTS 不支持 rate/volume 参数
+            
+            # Azure TTS 特定参数
+            elif self.tts_provider.lower() == "azure":
+                tts_kwargs["api_key"] = config.OPENAI_API_KEY  # 需要在 config 中添加 AZURE_TTS_KEY
+                tts_kwargs["region"] = "eastasia"
+                tts_kwargs["rate"] = "+15%"
+                tts_kwargs["volume"] = "+10%"
+            
+            tts_engine = TTSFactory.create_tts(
+                provider=TTSProvider[self.tts_provider.upper()],
+                **tts_kwargs
+            )
+            logger.info(f"✅ TTS 引擎已创建: {type(tts_engine).__name__} - {self.tts_voice}")
+            
+            # === 初始化 Agent（传入TTS引擎）===
             logger.debug("初始化 HybridReasoningAgent...")
             self._agent = HybridReasoningAgent(
                 model=self.llm_model,
                 enable_cache=self.enable_cache,
                 enable_streaming_tts=True,
-                voice_mode=False  # 由会话管理器控制
-            )
-            
-            # === 初始化 TTS ===
-            logger.debug(f"初始化 TTS ({self.tts_provider})...")
-            self._agent.tts_engine = TTSFactory.create_tts(
-                provider=TTSProvider[self.tts_provider.upper()],
-                voice=self.tts_voice,
-                rate="+15%",
-                volume="+10%"
+                voice_mode=False,  # 由会话管理器控制
+                tts_engine=tts_engine  # 🔧 关键修复：传入TTS引擎！
             )
             
             self._is_started = True

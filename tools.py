@@ -1016,6 +1016,123 @@ class FAQTool(BaseTool):
         }, ensure_ascii=False, indent=2)
 
 
+# ============== 多语言 TTS 语音选择工具 ==============
+
+class VoiceSelectorInput(BaseModel):
+    """语音选择工具的输入参数"""
+    language: str = Field(
+        description="目标语言（中文/英文/日文/西班牙语/法语/越南语，或 chinese/english/japanese/spanish/french/vietnamese）"
+    )
+    reason: str = Field(
+        description="切换原因（如：用户用英文提问、讲日本故事等）",
+        default=""
+    )
+
+class VoiceSelector(BaseTool):
+    """
+    多语言 TTS 语音选择工具 - AI 自主切换语音
+    
+    功能：根据对话语言自动切换 TTS 语音，提供更自然的多语言体验
+    """
+    
+    name: str = "voiceSelector"
+    description: str = """
+    多语言 TTS 语音选择工具 - 根据对话语言自动切换语音（核心功能）⭐
+    
+    **何时必须使用此工具**：
+    1. 🌍 用户用非中文提问时：
+       - 用户说 "Hello" / "What's up?" → 切换到英文语音
+       - 用户说 "こんにちは" / "ありがとう" → 切换到日文语音
+       - 用户说 "Bonjour" / "Merci" → 切换到法语语音
+       - 用户说 "Hola" / "Gracias" → 切换到西班牙语语音
+       - 用户说 "Xin chào" → 切换到越南语语音
+    
+    2. 📚 回答内容涉及特定语言时：
+       - 讲日本文化/故事 → 日文语音
+       - 教英语/讲英美故事 → 英文语音
+       - 法国文化/法语教学 → 法语语音
+    
+    3. 🔄 用户切换回中文时：
+       - 检测到用户重新用中文对话 → 切换回中文语音
+    
+    **支持的语言**：
+    - 中文 (chinese/zh/中文) → 晓晓女声 ⭐默认
+    - 英文 (english/en/英文) → Jenny女声（美式）
+    - 日文 (japanese/ja/日文) → Nanami女声
+    - 西班牙语 (spanish/es/西班牙语) → Elvira女声
+    - 法语 (french/fr/法语) → Denise女声
+    - 越南语 (vietnamese/vi/越南语) → HoaiMy女声
+    
+    **重要规则**：
+    - ✅ 语音切换后会一直保持，直到下次调用此工具
+    - ✅ 不要每句话都切换，只在语言环境变化时切换
+    - ✅ 如果用户用混合语言（如中英文混合），使用主要语言的语音
+    - ✅ 当用户明确要求时也要切换（如"用英文语音说"）
+    
+    **示例场景**：
+    ```
+    用户: "Hello, how are you?"
+    → 调用 voiceSelector(language="english", reason="用户用英文提问")
+    → 用英文语音回答: "I'm doing great, thanks for asking!"
+    
+    用户: "你好，现在几点了？"
+    → 调用 voiceSelector(language="chinese", reason="用户切换回中文")
+    → 用中文语音回答: "现在是下午3点15分。"
+    ```
+    
+    返回：切换成功的确认信息
+    """
+    args_schema: Type[BaseModel] = VoiceSelectorInput
+    
+    # 注入 Agent 实例（在 Agent 初始化时设置）
+    agent_instance: Any = None
+    
+    def _run(self, language: str, reason: str = "") -> str:
+        """执行语音切换"""
+        # 导入语音配置
+        from tts_interface import EDGE_TTS_VOICES, LANGUAGE_TO_DEFAULT_VOICE
+        
+        if not self.agent_instance:
+            return "❌ 错误：Agent 实例未注入，无法切换语音"
+        
+        # 规范化语言名称（支持中英文输入）
+        language_lower = language.lower().strip()
+        
+        # 查找对应的语音
+        if language_lower in LANGUAGE_TO_DEFAULT_VOICE:
+            voice_name = LANGUAGE_TO_DEFAULT_VOICE[language_lower]
+        else:
+            # 如果直接是语音名称，也支持
+            if language in EDGE_TTS_VOICES:
+                voice_name = language
+            else:
+                available = "\n".join([
+                    f"  - {lang}" 
+                    for lang in ["中文/chinese", "英文/english", "日文/japanese", 
+                                "西班牙语/spanish", "法语/french", "越南语/vietnamese"]
+                ])
+                return (
+                    f"❌ 不支持的语言 '{language}'！\n"
+                    f"支持的语言：\n{available}"
+                )
+        
+        # 切换语音
+        try:
+            old_voice = self.agent_instance.tts_engine.voice
+            self.agent_instance.tts_engine.set_voice(voice_name)
+            
+            voice_desc = EDGE_TTS_VOICES[voice_name]
+            reason_text = f"（原因：{reason}）" if reason else ""
+            
+            # 简洁的返回信息（避免冗长）
+            return (
+                f"✅ 语音已切换为 {voice_desc}\n"
+                f"   {reason_text}"
+            )
+        except Exception as e:
+            return f"❌ 语音切换失败: {str(e)}"
+
+
 # 导出所有工具（方便导入）
 __all__ = [
     # 基础工具
@@ -1032,6 +1149,8 @@ __all__ = [
     'WebSearchTool',
     'FileOperationTool',
     'ReminderTool',
+    # 多语言支持（新增）⭐
+    'VoiceSelector',
     # 前台接待专用（新增）
     'VisitorRegistrationTool',
     'MeetingRoomTool',

@@ -1,12 +1,75 @@
 """
 TTS 范型接口模块
 支持多种 TTS 服务的统一接口，方便切换
-后续添加多语种tts范型，现在只支持中文。由agent自己识别语言
+支持多语种 TTS，由 Agent 自主识别语言并切换
 """
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, List, Dict
 import asyncio
 from enum import Enum
+
+
+# ============== 多语言语音配置 ==============
+EDGE_TTS_VOICES: Dict[str, str] = {
+    # 中文（女声优先）
+    "zh-CN-XiaoxiaoNeural": "晓晓 - 温柔女声（中文）⭐",
+    "zh-CN-XiaomoNeural": "晓墨 - 知性女声（中文）",
+    "zh-CN-XiaoyiNeural": "晓伊 - 成熟女声（中文）",
+    "zh-CN-YunxiNeural": "云希 - 阳光男声（中文）",
+    
+    # 英文（女声优先）
+    "en-US-JennyNeural": "Jenny - 友好女声（美式英语）⭐",
+    "en-US-AriaNeural": "Aria - 专业女声（美式英语）",
+    "en-GB-SoniaNeural": "Sonia - 优雅女声（英式英语）",
+    "en-US-GuyNeural": "Guy - 新闻男声（美式英语）",
+    
+    # 日语（女声优先）
+    "ja-JP-NanamiNeural": "Nanami - 温柔女声（日语）⭐",
+    "ja-JP-AoiNeural": "Aoi - 活泼女声（日语）",
+    "ja-JP-MayuNeural": "Mayu - 甜美女声（日语）",
+    "ja-JP-KeitaNeural": "Keita - 稳重男声（日语）",
+    
+    # 西班牙语（女声优先）
+    "es-ES-ElviraNeural": "Elvira - 热情女声（西班牙语）⭐",
+    "es-MX-DaliaNeural": "Dalia - 亲切女声（墨西哥西语）",
+    "es-ES-AlvaroNeural": "Alvaro - 专业男声（西班牙语）",
+    
+    # 法语（女声优先）
+    "fr-FR-DeniseNeural": "Denise - 优雅女声（法语）⭐",
+    "fr-FR-BrigitteNeural": "Brigitte - 温柔女声（法语）",
+    "fr-FR-HenriNeural": "Henri - 稳重男声（法语）",
+    
+    # 越南语（女声优先）
+    "vi-VN-HoaiMyNeural": "HoaiMy - 亲切女声（越南语）⭐",
+    "vi-VN-NamMinhNeural": "NamMinh - 专业男声（越南语）",
+}
+
+# 语言到默认语音的映射（Agent 自动选择）
+LANGUAGE_TO_DEFAULT_VOICE: Dict[str, str] = {
+    "中文": "zh-CN-XiaoxiaoNeural",
+    "chinese": "zh-CN-XiaoxiaoNeural",
+    "zh": "zh-CN-XiaoxiaoNeural",
+    
+    "英文": "en-US-JennyNeural",
+    "english": "en-US-JennyNeural",
+    "en": "en-US-JennyNeural",
+    
+    "日文": "ja-JP-NanamiNeural",
+    "japanese": "ja-JP-NanamiNeural",
+    "ja": "ja-JP-NanamiNeural",
+    
+    "西班牙语": "es-ES-ElviraNeural",
+    "spanish": "es-ES-ElviraNeural",
+    "es": "es-ES-ElviraNeural",
+    
+    "法语": "fr-FR-DeniseNeural",
+    "french": "fr-FR-DeniseNeural",
+    "fr": "fr-FR-DeniseNeural",
+    
+    "越南语": "vi-VN-HoaiMyNeural",
+    "vietnamese": "vi-VN-HoaiMyNeural",
+    "vi": "vi-VN-HoaiMyNeural",
+}
 
 
 class TTSProvider(Enum):
