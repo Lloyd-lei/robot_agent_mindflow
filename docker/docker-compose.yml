@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  voice-agent:
+    image: qiayuanl/unitree:jazzy-latest
+    container_name: unitree-voice-agent
+    platform: linux/arm64
+    
+    # 网络配置
+    network_mode: host
+    
+    # 特权模式（访问硬件）
+    privileged: true
+    
+    # 设备映射（麦克风、扬声器）
+    devices:
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    
+    # 挂载卷
+    volumes:
+      - ../:/workspace/agent_mvp
+      - ~/.env:/workspace/agent_mvp/.env:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    
+    # 环境变量
+    environment:
+      - DISPLAY=${DISPLAY}
+      - PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native
+      - PYTHONUNBUFFERED=1
+      - ROS_DOMAIN_ID=0
+    
+    # 工作目录
+    working_dir: /workspace/agent_mvp
+    
+    # 启动命令
+    command: /bin/bash -c "source /opt/ros/jazzy/setup.bash && bash"
+    
+    # 重启策略
+    restart: unless-stopped
+    
+    # 保持运行
+    stdin_open: true
+    tty: true
+
