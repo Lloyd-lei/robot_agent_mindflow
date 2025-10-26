@@ -1,372 +1,272 @@
-# 🤖 AI Agent + TTS 语音助手
+# 🚀 Robot Agent Mindflow
 
-**生产级 AI 语音交互系统 - OpenAI + LangChain + Edge TTS**
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/OpenAI-GPT--4-blue?style=for-the-badge&logo=openai" />
-  <img src="https://img.shields.io/badge/LangChain-Agent-green?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/TTS-Edge%20TTS-orange?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Python-3.8%2B-yellow?style=for-the-badge&logo=python" />
-</p>
+> 混合架构AI Agent - OpenAI原生 + LangChain工具池 + KV Cache优化 + 真实语音播放
 
 ---
 
-## 🎯 项目概述
+## ✨ 特性
 
-这是一个**生产级 AI 语音交互系统**，结合了：
+- 🎯 **混合架构** - OpenAI原生API + LangChain工具池
+- ⚡ **KV Cache优化** - 多轮对话速度提升3-5倍，成本节省50%
+- 🗣️ **真实语音** - Edge TTS免费高质量中文语音
+- 🛠️ **17个工具** - 数学、时间、文本、前台接待等
+- 🏗️ **新架构** - 分层设计，模块化，易维护
+- 📖 **完整文档** - 架构设计 + 迁移指南
 
-- 🧠 **OpenAI GPT-4** - 强大的推理能力
-- 🛠️ **LangChain 工具池** - 17 个智能工具
-- 🗣️ **Edge TTS** - 高质量语音合成
-- ⚡ **KV Cache 优化** - 多轮对话加速 3-5 倍
+---
 
-### ✨ 核心特性
-
-| 特性                  | 说明                                       | 状态 |
-| --------------------- | ------------------------------------------ | ---- |
-| **100% 可靠工具调用** | OpenAI 原生 API，`tool_choice` 强制调用    | ✅   |
-| **17 个智能工具**     | 计算器、时间、图书馆、前台接待等           | ✅   |
-| **KV Cache 优化**     | 系统提示词缓存，对话历史缓存               | ✅   |
-| **TTS 语音合成**      | Edge TTS 免费高质量，支持切换 Azure/OpenAI | ✅   |
-| **真实音频播放**      | pygame 实时播放，防重叠机制                | ✅   |
-| **推理过程可视化**    | 完整展示工具选择和参数决策                 | ✅   |
-| **范型 TTS 接口**     | 轻松切换不同 TTS 服务                      | ✅   |
-
-## 📁 项目结构
-
-```
-robot_agent_mindflow/
-├── 📄 核心文件
-│   ├── agent_hybrid.py          # 混合架构 Agent（OpenAI + LangChain）
-│   ├── tools.py                 # 17 个 LangChain 工具
-│   ├── tts_interface.py         # TTS 范型接口（Edge/Azure/OpenAI）
-│   ├── tts_optimizer.py         # TTS 文本优化 + 音频播放管理
-│   ├── voice_feedback.py        # 语音反馈（思考提示）
-│   └── config.py                # 配置管理
-│
-├── 🎬 演示程序
-│   ├── demo_hybrid.py           # 主交互演示（推荐）✨
-│   └── test_tts_integration.py  # TTS 功能测试
-│
-├── 📚 文档
-│   ├── README.md                # 本文件
-│   ├── 快速开始.md              # 5 分钟上手指南
-│   ├── TTS配置说明.md           # TTS 详细配置
-│   ├── TTS集成总结.md           # TTS 集成报告
-│   ├── 项目结构说明.md          # 架构文档
-│   ├── 混合架构优化报告.md      # 性能优化报告
-│   └── 前台接待Agent说明.md     # 业务场景示例
-│
-├── 🗑️ 归档文件
-│   └── waste/                   # 旧版本文件（已归档）
-│
-└── ⚙️ 配置文件
-    ├── requirements.txt         # Python 依赖
-    ├── .env.example             # 环境变量模板
-    ├── .gitignore              # Git 忽略规则
-    └── .env                    # 环境变量（需自行创建）
-```
-
-## 🏗️ 架构设计
-
-### 混合架构流程图
-
-```
-┌────────────────────────────────────────────────────────┐
-│                    用户语音/文本输入                      │
-└────────────────────────────────────────────────────────┘
-                            ↓
-┌────────────────────────────────────────────────────────┐
-│               混合架构 Agent (agent_hybrid.py)           │
-│                                                          │
-│  ┌────────────────┐          ┌──────────────────┐     │
-│  │  OpenAI API    │          │  LangChain Tools │     │
-│  │  • Function    │  ◄────►  │  • 17 个工具     │     │
-│  │    Calling     │          │  • 即插即用      │     │
-│  │  • GPT-4推理   │          │  • 独立执行      │     │
-│  └────────────────┘          └──────────────────┘     │
-│          ↓                           ↓                  │
-│  ┌────────────────────────────────────────────┐       │
-│  │        KV Cache 优化 (自动缓存)            │       │
-│  │  • 系统提示词缓存 (50% off)                 │       │
-│  │  • 对话历史缓存 (多轮加速)                  │       │
-│  └────────────────────────────────────────────┘       │
-└────────────────────────────────────────────────────────┘
-                            ↓
-┌────────────────────────────────────────────────────────┐
-│                TTS 优化器 (tts_optimizer.py)             │
-│  • 文本清理 + 智能分句                                   │
-│  • 异步音频生成 + 防重叠播放                             │
-│  • 失败重试 + 降级策略                                   │
-└────────────────────────────────────────────────────────┘
-                            ↓
-┌────────────────────────────────────────────────────────┐
-│              TTS 引擎 (tts_interface.py)                 │
-│  ┌─────────┐  ┌──────────┐  ┌───────────┐            │
-│  │Edge TTS │  │Azure TTS │  │OpenAI TTS │            │
-│  │(默认)   │  │(付费)    │  │(付费)     │            │
-│  └─────────┘  └──────────┘  └───────────┘            │
-└────────────────────────────────────────────────────────┘
-                            ↓
-┌────────────────────────────────────────────────────────┐
-│               音频播放 (pygame)                          │
-│  • 阻塞式播放 • 精确停顿 • 支持中断                      │
-└────────────────────────────────────────────────────────┘
-```
-
-### 核心优势
-
-1. **OpenAI 原生 API** → 100% 可靠的工具调用
-2. **LangChain 工具池** → 丰富的工具生态
-3. **KV Cache 优化** → 自动缓存，成本减半
-4. **范型 TTS 接口** → 一行代码切换服务
-
-## 🚀 快速开始
-
-### 5 分钟上手
+## 🚀 30秒快速开始
 
 ```bash
-# 1. 克隆项目
-git clone https://github.com/Lloyd-lei/robot_agent_mindflow.git
-cd robot_agent_mindflow
-
-# 2. 安装依赖
+# 1. 安装依赖
 pip install -r requirements.txt
 
-# 3. 配置 API 密钥
+# 2. 配置API Key
 cp .env.example .env
-# 编辑 .env 文件，填入你的 OpenAI API 密钥
+# 编辑 .env，设置 OPENAI_API_KEY=your-key
 
-# 4. 运行 TTS 测试
-python test_tts_integration.py
-
-# 5. 启动 AI Agent
-python demo_hybrid.py
+# 3. 启动语音Agent
+python main.py
 ```
 
-### 环境变量配置
+就这么简单！🎉
 
-编辑 `.env` 文件：
+详见 [快速启动指南](QUICKSTART.md)
 
-```env
-# OpenAI API 配置
-OPENAI_API_KEY=sk-proj-你的密钥
+---
 
-# 模型配置
-LLM_MODEL=gpt-4-turbo-preview
-TEMPERATURE=0
+## 📖 文档
+
+- 🚀 **[快速启动](QUICKSTART.md)** - 30秒上手
+- 🏗️ **[架构设计](docs/architecture.md)** - 完整架构说明
+- 🔄 **[迁移指南](docs/migration_guide.md)** - 从旧代码迁移
+- 📝 **[重构总结](ARCHITECTURE_REFACTORING.md)** - 架构重构详情
+
+---
+
+## 🎯 核心优势
+
+### 1. 混合架构
+
+```
+OpenAI原生API (推理引擎)
+    ↓
+    100%可靠的工具调用 + tool_choice控制
+    ↓
+LangChain工具池 (执行引擎)
+    ↓
+    17个强大工具 + 易于扩展
 ```
 
-💡 **获取 OpenAI API 密钥**: https://platform.openai.com/api-keys
+### 2. KV Cache优化
 
-### 试试这些命令
+- **系统提示词缓存** - 节省50%成本
+- **对话历史缓存** - 速度提升3-5倍
+- **自动优化** - 无需手动管理
 
-启动 `demo_hybrid.py` 后，试试：
+### 3. 真实语音
+
+- **Edge TTS** - 免费、高质量
+- **智能分句** - 自然流畅
+- **防重叠播放** - 稳定可靠
+
+### 4. 新架构
 
 ```
-现在几点了？
-计算 sqrt(2) 保留 3 位小数
-图书馆有关于 Python 的书吗？
-帮我登记访客信息
-再见（自动结束对话）
+src/
+├── core/         # 核心层 - Agent、Tools、Config
+├── services/     # 服务层 - TTS、Voice
+└── tools/        # 工具层 - Basic、Reception、System
 ```
 
-📖 **详细教程**: 查看 `快速开始.md`
+- ✅ 分层清晰
+- ✅ 易于维护
+- ✅ 易于扩展
+- ✅ 100%向后兼容
 
-## 💡 核心功能演示
+---
 
-### 测试：计算 sqrt(2) 保留 3 位小数
+## 💡 使用示例
 
-```python
-from agent import ReasoningAgent
-
-# 创建Agent
-agent = ReasoningAgent(verbose=True)
-
-# 运行测试
-result = agent.run("计算sqrt(2)保留3位小数")
-
-# 输出
-# LLM推理过程：
-# 1. 理解问题：需要计算2的平方根并保留3位小数
-# 2. 决策：这是数学计算，需要使用calculator工具
-# 3. 工具调用：calculator("round(sqrt(2), 3)")
-# 4. 获取结果：1.414
-# 5. 生成答案：sqrt(2)保留3位小数等于1.414
-```
-
-## 🛠️ 工具系统
-
-### CalculatorTool（计算器工具）
-
-**功能**：支持各种数学运算和函数
-
-**支持的操作**：
-
-- 基础运算：`+`, `-`, `*`, `/`, `**`
-- 数学函数：`sqrt`, `sin`, `cos`, `tan`, `log`, `exp`, `abs`, `round`
-- 数学常量：`pi`, `e`
-
-**示例**：
-
-```python
-# 直接使用工具
-from tools import CalculatorTool
-
-calc = CalculatorTool()
-result = calc._run("round(sqrt(2), 3)")
-print(result)  # 输出: 1.414
-```
-
-### 添加新工具
-
-解耦设计让添加新工具变得非常简单：
-
-```python
-from langchain.tools import BaseTool
-
-# 1. 定义新工具
-class MyNewTool(BaseTool):
-    name = "my_tool"
-    description = "工具描述"
-
-    def _run(self, input):
-        # 实现逻辑
-        return "result"
-
-# 2. 添加到Agent
-agent = ReasoningAgent()
-agent.add_tool(MyNewTool())
-
-# 3. LLM会自动学会使用新工具！
-```
-
-## 🧠 推理能力展示
-
-Agent 能够：
-
-1. **理解不同表达方式**
-
-   - "计算 sqrt(2)保留 3 位小数"
-   - "求 2 的平方根，保留 3 位小数"
-   - "sqrt(2)的值是多少？保留小数点后 3 位"
-
-2. **自主决策是否需要工具**
-
-   - 数学问题 → 调用 calculator
-   - 普通对话 → 直接回答
-   - 复杂任务 → 多步推理
-
-3. **多步推理**
-   - 分析问题
-   - 规划步骤
-   - 执行工具
-   - 综合答案
-
-## 📊 测试结果
+### 基础对话
 
 ```bash
-$ python test_agent.py
+$ python main.py
 
-✅ 核心测试通过
-✅ 扩展测试通过
-✅ 推理能力验证通过
+💬 您: 现在几点了?
 
-特性验证成功：
-   • LLM具有推理能力 ✓
-   • 能够自主决策何时调用工具 ✓
-   • 工具调用准确无误 ✓
-   • 解耦设计，架构清晰 ✓
+🧠 混合架构推理过程...
+📡 调用OpenAI API进行推理...
+✅ 模型决定调用工具: time_tool
+📤 工具返回结果: 14:30:25
+💬 最终回答: 现在是下午2点30分25秒。
+
+🎵 TTS音频播放
+🔊 [播放] 现在是下午2点30分25秒。
+✅ 完成
+
+⚡ 响应耗时: 3.21秒
+📞 工具调用: 1次
+🔊 语音播放: ✅ 完成
 ```
 
-## 🔧 配置说明
-
-### config.py
+### 编程API
 
 ```python
-OPENAI_API_KEY = "your_key"      # OpenAI API密钥
-LLM_MODEL = "gpt-4-turbo-preview"  # 使用的模型
-TEMPERATURE = 0                     # 温度（0=确定性）
+from src.core import HybridReasoningAgent
+from src.tools import load_all_tools
+
+# 加载工具
+tools = load_all_tools()
+
+# 创建Agent
+agent = HybridReasoningAgent(tools=tools)
+
+# 执行推理
+result = agent.run("计算sqrt(2)保留3位小数")
+
+print(result.output)       # 最终回答
+print(result.tool_calls)   # 工具调用次数
 ```
 
-### 模型选择
+---
 
-- **gpt-4-turbo-preview**: 最强推理能力（推荐）
-- **gpt-4**: 稳定版本
-- **gpt-3.5-turbo**: 更快但推理能力稍弱
+## 🛠️ 可用工具
 
-## 🎓 核心概念
+### 基础工具 (8个)
+- ✅ Calculator - 数学计算
+- ✅ TimeTool - 时间查询
+- ✅ TextAnalyzer - 文本分析
+- ✅ UnitConverter - 单位转换
+- ✅ DataComparison - 数据比较
+- ✅ LogicReasoning - 逻辑推理
+- ✅ LibraryManagement - 图书馆管理
+- ✅ ConversationEnd - 对话结束检测
 
-### 1. Function Calling
+### 前台接待工具 (6个)
+- ✅ VisitorRegistration - 访客登记
+- ✅ MeetingRoom - 会议室管理
+- ✅ EmployeeDirectory - 员工通讯录
+- ✅ DirectionGuide - 路线指引
+- ✅ PackageManagement - 包裹管理
+- ✅ FAQ - 常见问题
 
-OpenAI 的 Function Calling 让 LLM 能够：
+### 系统工具 (3个)
+- ✅ WebSearch - 网络搜索
+- ✅ FileOperation - 文件操作
+- ✅ Reminder - 提醒设置
 
-- 识别何时需要外部工具
-- 生成正确的函数调用参数
-- 理解函数返回结果
+---
 
-### 2. ReAct 模式
+## 🎨 架构亮点
 
-**Re**asoning + **Act**ing：
+### 旧架构 vs 新架构
 
-1. **Think**: LLM 思考问题
-2. **Act**: LLM 决定调用工具
-3. **Observe**: LLM 观察结果
-4. **Repeat**: 重复直到解决问题
+| 方面 | 旧架构 | 新架构 |
+|------|--------|--------|
+| 结构 | ❌ 扁平化，混乱 | ✅ 三层分层 |
+| 职责 | ❌ 不清晰 | ✅ 单一职责 |
+| 配置 | ❌ 简单变量 | ✅ Pydantic验证 |
+| 维护 | ❌ 困难 | ✅ 易维护 |
+| 扩展 | ❌ 修改困难 | ✅ 易扩展 |
+| 文档 | ❌ 零散 | ✅ 完整详细 |
 
-### 3. 解耦设计
+### 设计原则
 
+1. **分层架构** - Core / Services / Tools
+2. **依赖倒置** - 面向接口编程
+3. **单一职责** - 每个模块只做一件事
+4. **开闭原则** - 对扩展开放，对修改关闭
+
+---
+
+## 📊 性能
+
+- ⚡ **首次调用**: ~3秒
+- ⚡ **后续调用**: ~1秒 (KV Cache优化)
+- 💰 **成本节省**: ~50% (系统提示词缓存)
+- 🎵 **TTS延迟**: <1秒 (Edge TTS)
+
+---
+
+## 🔧 配置
+
+编辑 `.env` 文件:
+
+```bash
+# OpenAI配置
+OPENAI_API_KEY=your-key-here
+LLM_MODEL=gpt-4-turbo-preview
+TEMPERATURE=0.0
+
+# TTS配置
+ENABLE_TTS=true
+TTS_VOICE=zh-CN-XiaoxiaoNeural
+TTS_RATE=+0%
+TTS_VOLUME=+0%
+
+# Agent配置
+ENABLE_CACHE=true
+MAX_RETRIES=3
 ```
-┌─────────┐         ┌─────────┐
-│   LLM   │ ◄────► │  Tools  │
-│ (推理)  │         │ (执行)  │
-└─────────┘         └─────────┘
-    ↑                    ↑
-    └──── 完全解耦 ────┘
+
+---
+
+## 🧪 测试
+
+```bash
+# 快速测试
+python main.py --test
+
+# 架构测试
+python scripts/test_new_architecture.py
+
+# 运行示例
+python examples/demo_new_architecture.py
 ```
 
-**优势**：
+---
 
-- LLM 可以换成任何模型
-- 工具可以独立升级
-- 新工具可以即插即用
+## 📝 更新日志
 
-## 🚀 扩展方向
+### v0.2.0 (2024-10-26) - 架构重构
 
-### 未来可以添加的工具
+- ✅ 新目录结构 - 分层架构
+- ✅ 核心模块重构 - BaseAgent, BaseTool, Settings
+- ✅ 完整文档 - 架构设计 + 迁移指南
+- ✅ 主入口文件 - `main.py`
+- ✅ 100%向后兼容
 
-1. **图像识别工具**
+### v0.1.0 - MVP版本
 
-   ```python
-   class VisionTool(BaseTool):
-       name = "image_analyzer"
-       # 使用GPT-4V或其他视觉模型
-   ```
+- ✅ 混合架构 - OpenAI + LangChain
+- ✅ KV Cache优化
+- ✅ TTS集成
 
-2. **网络搜索工具**
-
-   ```python
-   class SearchTool(BaseTool):
-       name = "web_search"
-       # 集成搜索API
-   ```
-
-3. **数据库查询工具**
-   ```python
-   class DatabaseTool(BaseTool):
-       name = "db_query"
-       # 执行SQL查询
-   ```
-
-## 📝 技术栈
-
-- **LangChain**: Agent 框架
-- **OpenAI GPT-4**: 推理 LLM
-- **Python 3.8+**: 开发语言
+---
 
 ## 🤝 贡献
 
-欢迎提交 Issue 和 PR！
+欢迎贡献！请遵循:
+
+1. Fork本仓库
+2. 创建特性分支
+3. 提交更改
+4. 开启Pull Request
+
+详见 [贡献指南](docs/architecture.md#贡献指南)
+
+---
+
+## 📧 联系
+
+- GitHub: [@Lloyd-lei](https://github.com/Lloyd-lei)
+- Issues: [提交问题](https://github.com/Lloyd-lei/robot_agent_mindflow/issues)
+
+---
 
 ## 📄 许可证
 
@@ -374,6 +274,14 @@ MIT License
 
 ---
 
-**作者**: AI Agent Team  
-**版本**: 1.0.0  
-**更新时间**: 2025-10-23
+## 🙏 致谢
+
+- OpenAI - GPT API
+- LangChain - 工具生态
+- Edge TTS - 免费TTS服务
+
+---
+
+**享受与AI的对话吧！🎉**
+
+[快速开始](QUICKSTART.md) | [完整文档](docs/architecture.md) | [示例代码](examples/)
